@@ -1,0 +1,1404 @@
+<!DOCTYPE html>
+<html lang="gu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Smart Hisab Master</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Gujarati:wght@300;400;600;700&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://maxst.icons8.com/vue-static/landings/line-awesome/line-awesome/1.3.0/css/line-awesome.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-database-compat.js"></script>
+<style>
+:root {
+  --bg: #0f1117;
+  --surface: #1a1d27;
+  --surface2: #22263a;
+  --border: #2e3248;
+  --green: #00e5a0;
+  --green-dim: rgba(0,229,160,0.12);
+  --red: #ff4d6d;
+  --red-dim: rgba(255,77,109,0.12);
+  --blue: #4d9fff;
+  --blue-dim: rgba(77,159,255,0.12);
+  --gold: #ffc14d;
+  --gold-dim: rgba(255,193,77,0.12);
+  --text: #e8eaf6;
+  --text-mid: #8b91b8;
+  --text-dim: #4a5080;
+  --radius: 16px;
+  --nav-h: 72px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Sora', 'Noto Sans Gujarati', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding-bottom: calc(var(--nav-h) + 20px);
+  font-size: 14px;
+}
+
+/* Mesh background */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(ellipse 60% 40% at 20% 10%, rgba(0,229,160,0.04) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 50% at 80% 80%, rgba(77,159,255,0.04) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 60% at 60% 30%, rgba(255,193,77,0.03) 0%, transparent 50%);
+  pointer-events: none; z-index: -1;
+}
+
+/* HEADER */
+header {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(15,17,23,0.92);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 20px;
+  height: 64px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+.header-logo {
+  display: flex; align-items: center; gap: 10px;
+}
+.logo-icon {
+  width: 38px; height: 38px;
+  background: linear-gradient(135deg, var(--green), #00b37a);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; box-shadow: 0 4px 16px rgba(0,229,160,0.3);
+}
+.logo-text {
+  font-size: 17px; font-weight: 700; color: var(--text);
+  letter-spacing: -0.3px;
+}
+.logo-sub {
+  font-size: 10px; color: var(--text-dim);
+  letter-spacing: 0.05em; text-transform: uppercase;
+}
+
+.header-date {
+  font-size: 11px; color: var(--text-dim);
+  background: var(--surface);
+  padding: 6px 12px; border-radius: 20px;
+  border: 1px solid var(--border);
+}
+
+/* CONTAINER */
+.container {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 20px 16px;
+  position: relative; z-index: 10;
+}
+
+/* BANK SUMMARY */
+.bank-summary-card {
+  background: linear-gradient(135deg, #1a2540 0%, #1a1d27 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 20px;
+  position: relative; overflow: hidden;
+}
+.bank-summary-card::before {
+  content: '';
+  position: absolute; top: -40px; right: -40px;
+  width: 150px; height: 150px;
+  background: radial-gradient(circle, rgba(0,229,160,0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.total-balance-label {
+  font-size: 10px; letter-spacing: 0.15em;
+  text-transform: uppercase; color: var(--text-dim);
+  margin-bottom: 4px;
+}
+.total-balance-amt {
+  font-size: 32px; font-weight: 700;
+  color: var(--green);
+  letter-spacing: -1px;
+  margin-bottom: 20px;
+  line-height: 1;
+}
+.total-balance-amt span { font-size: 18px; font-weight: 400; color: var(--text-mid); }
+
+.bank-chips {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.bank-chip {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  transition: border-color 0.2s;
+}
+.bank-chip:hover { border-color: var(--green); }
+.bank-chip-name {
+  font-size: 10px; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.1em;
+  margin-bottom: 4px;
+}
+.bank-chip-amt {
+  font-size: 16px; font-weight: 600; color: var(--text);
+}
+.bank-chip-amt.positive { color: var(--green); }
+.bank-chip-amt.negative { color: var(--red); }
+
+/* SECTIONS */
+section { display: none; }
+section.active { display: block; }
+
+/* CARDS */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.card-title {
+  font-size: 13px; font-weight: 600;
+  color: var(--text-mid);
+  text-transform: uppercase; letter-spacing: 0.1em;
+  margin-bottom: 16px;
+  display: flex; align-items: center; gap: 8px;
+}
+.card-title-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--green);
+}
+
+/* FORM ELEMENTS */
+.form-row {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 10px; margin-bottom: 10px;
+}
+.form-row.full { grid-template-columns: 1fr; }
+
+label.field-label {
+  display: block;
+  font-size: 10px; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.1em;
+  margin-bottom: 5px;
+}
+
+input, select {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-family: 'Sora', sans-serif;
+  font-size: 13px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline: none;
+  -webkit-appearance: none;
+}
+input:focus, select:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px rgba(0,229,160,0.1);
+}
+input::placeholder { color: var(--text-dim); }
+select option { background: var(--surface2); }
+
+/* TYPE TOGGLE */
+.type-toggle {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 8px; margin-bottom: 16px;
+}
+.type-btn {
+  padding: 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface2);
+  color: var(--text-mid);
+  font-family: 'Sora', sans-serif;
+  font-size: 13px; font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  position: relative; z-index: 1;
+}
+.type-btn.income.selected {
+  border-color: var(--green);
+  background: var(--green-dim);
+  color: var(--green);
+  box-shadow: 0 0 16px rgba(0,229,160,0.15);
+}
+.type-btn.expense.selected {
+  border-color: var(--red);
+  background: var(--red-dim);
+  color: var(--red);
+  box-shadow: 0 0 16px rgba(255,77,109,0.15);
+}
+
+/* BUTTONS */
+.btn {
+  width: 100%; padding: 14px;
+  border: none; border-radius: 10px;
+  font-family: 'Sora', sans-serif;
+  font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: all 0.2s;
+  letter-spacing: 0.02em;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  position: relative; z-index: 1;
+}
+.btn-green {
+  background: linear-gradient(135deg, var(--green), #00c988);
+  color: #0f1117;
+  box-shadow: 0 4px 20px rgba(0,229,160,0.25);
+}
+.btn-green:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(0,229,160,0.35); }
+.btn-green:active { transform: translateY(0); }
+
+.btn-blue {
+  background: linear-gradient(135deg, var(--blue), #2979ff);
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(77,159,255,0.25);
+}
+.btn-orange {
+  background: linear-gradient(135deg, #ff8c42, #ff6b35);
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(255,107,53,0.25);
+}
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-mid);
+}
+.btn-outline:hover { border-color: var(--text-mid); color: var(--text); }
+
+/* ENTRY LIST */
+.entry-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+.entry-item:last-child { border-bottom: none; }
+
+.entry-icon {
+  width: 40px; height: 40px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; flex-shrink: 0;
+}
+.entry-icon.income { background: var(--green-dim); }
+.entry-icon.expense { background: var(--red-dim); }
+.entry-icon.transfer { background: var(--blue-dim); }
+.entry-icon.loan { background: var(--gold-dim); }
+
+.entry-info { flex: 1; min-width: 0; }
+.entry-cat {
+  font-size: 13px; font-weight: 600; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.entry-meta {
+  font-size: 11px; color: var(--text-dim); margin-top: 2px;
+}
+
+.entry-right { text-align: right; flex-shrink: 0; }
+.entry-amt {
+  font-size: 14px; font-weight: 700;
+}
+.entry-amt.income { color: var(--green); }
+.entry-amt.expense { color: var(--red); }
+.entry-amt.transfer { color: var(--blue); }
+.entry-amt.loan { color: var(--gold); }
+.entry-del {
+  background: none; border: none;
+  color: var(--text-dim); font-size: 16px;
+  cursor: pointer; padding: 4px; margin-top: 4px;
+  transition: color 0.2s; display: block; margin-left: auto;
+}
+.entry-del:hover { color: var(--red); }
+
+/* LOAN CARDS */
+.loan-person-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  display: flex; justify-content: space-between;
+  align-items: center; margin-bottom: 8px;
+  transition: border-color 0.2s;
+}
+.loan-person-card:hover { border-color: var(--gold); }
+.loan-person-name { font-size: 14px; font-weight: 600; }
+.loan-person-amt { font-size: 15px; font-weight: 700; }
+.loan-person-amt.given { color: var(--green); }
+.loan-person-amt.taken { color: var(--red); }
+
+/* REPORT */
+.report-summary-row {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 10px; margin-bottom: 16px;
+}
+.report-stat {
+  background: var(--surface2);
+  border-radius: 10px; padding: 14px;
+  border: 1px solid var(--border);
+}
+.report-stat-label {
+  font-size: 10px; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px;
+}
+.report-stat-val { font-size: 20px; font-weight: 700; }
+.report-stat-val.green { color: var(--green); }
+.report-stat-val.red { color: var(--red); }
+.report-stat-val.gold { color: var(--gold); }
+
+.savings-banner {
+  background: linear-gradient(135deg, rgba(0,229,160,0.12), rgba(0,229,160,0.05));
+  border: 1px solid rgba(0,229,160,0.25);
+  border-radius: 12px; padding: 16px 20px;
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 16px;
+}
+.savings-label { font-size: 12px; color: var(--text-mid); }
+.savings-amt { font-size: 22px; font-weight: 700; color: var(--green); }
+
+/* REPORT TABLE */
+.report-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 12px; margin-top: 8px;
+}
+.report-table th {
+  background: var(--surface2); color: var(--text-mid);
+  padding: 8px 10px; text-align: left;
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+  font-weight: 600; border-bottom: 1px solid var(--border);
+}
+.report-table td {
+  padding: 8px 10px; border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+.report-table tr:last-child td { border-bottom: none; font-weight: 700; }
+
+/* SETTINGS */
+.settings-cat-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 0; border-bottom: 1px solid var(--border);
+}
+.settings-cat-item:last-child { border-bottom: none; }
+.cat-pill {
+  font-size: 11px; background: var(--surface2);
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 4px 10px; color: var(--text-mid);
+}
+.del-cat-btn {
+  background: var(--red-dim); color: var(--red);
+  border: 1px solid rgba(255,77,109,0.2);
+  border-radius: 6px; padding: 4px 10px;
+  font-size: 11px; cursor: pointer; transition: all 0.2s;
+}
+.del-cat-btn:hover { background: var(--red); color: #fff; }
+
+/* SECTION HEADING */
+.sec-head {
+  font-size: 20px; font-weight: 700;
+  color: var(--text); margin-bottom: 20px;
+  display: flex; align-items: center; gap: 10px;
+}
+.sec-head-icon {
+  width: 36px; height: 36px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+}
+
+/* BOTTOM NAV */
+nav {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  height: var(--nav-h);
+  background: rgba(26,29,39,0.97);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border);
+  display: flex; align-items: center;
+  z-index: 9999;
+  padding: 0 8px;
+}
+.nav-btn {
+  flex: 1; background: none; border: none;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 4px; padding: 8px 4px;
+  cursor: pointer; color: var(--text-dim);
+  transition: all 0.2s; border-radius: 12px;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.nav-btn i { font-size: 22px; transition: all 0.25s; display: block; }
+.nav-btn span { font-size: 9px; letter-spacing: 0.05em; font-weight: 600; font-family: 'Sora', sans-serif; }
+.nav-btn.active { color: var(--green); }
+.nav-btn.active i { transform: translateY(-3px) scale(1.1); filter: drop-shadow(0 0 8px rgba(0,229,160,0.5)); }
+.nav-btn.active span { color: var(--green); }
+
+/* TOAST */
+.toast {
+  position: fixed; bottom: calc(var(--nav-h) + 16px); left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 20px;
+  font-size: 13px; color: var(--text);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  z-index: 500; opacity: 0; pointer-events: none;
+  transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  white-space: nowrap;
+  display: flex; align-items: center; gap: 8px;
+}
+.toast.show {
+  opacity: 1; transform: translateX(-50%) translateY(0);
+}
+.toast-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+
+/* TRANSFER */
+.transfer-arrow {
+  text-align: center; color: var(--blue);
+  font-size: 24px; padding: 8px 0;
+}
+
+/* DATE FILTER */
+.date-filter {
+  display: grid; grid-template-columns: 1fr 1fr auto;
+  gap: 10px; align-items: end; margin-bottom: 16px;
+}
+.date-filter button {
+  height: 44px; padding: 0 16px;
+  background: var(--blue-dim); border: 1px solid var(--blue);
+  color: var(--blue); border-radius: 10px;
+  font-family: 'Sora', sans-serif;
+  font-size: 13px; font-weight: 600;
+  cursor: pointer; white-space: nowrap;
+  transition: all 0.2s;
+}
+.date-filter button:hover { background: var(--blue); color: #fff; }
+
+/* ANIMATIONS */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.card { animation: fadeUp 0.3s ease both; }
+
+/* CATEGORY FILTER CHIPS */
+.cat-filter-chip {
+  padding: 6px 12px; border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: var(--surface2); color: var(--text-dim);
+  font-size: 11px; font-weight: 600; cursor: pointer;
+  transition: all 0.2s; font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.cat-filter-chip.selected {
+  border-color: var(--gold); background: var(--gold-dim); color: var(--gold);
+}
+.filter-type-btn {
+  flex:1; padding: 8px; border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--surface2); color: var(--text-dim);
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: all 0.2s; font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.filter-type-btn.active {
+  border-color: var(--blue); background: var(--blue-dim); color: var(--blue);
+}
+
+/* ENTRY DETAIL TABLE in Report */
+.detail-table {
+  width:100%; border-collapse:collapse; font-size:12px; margin-top:8px;
+}
+.detail-table th {
+  background: var(--surface2); color: var(--text-dim);
+  padding: 7px 8px; text-align:left;
+  font-size:10px; text-transform:uppercase; letter-spacing:0.08em;
+  font-weight:600; border-bottom:1px solid var(--border);
+}
+.detail-table td {
+  padding: 8px; border-bottom: 1px solid var(--border); color: var(--text);
+  vertical-align: middle;
+}
+.detail-table tr:last-child td { border-bottom:none; }
+.detail-table .tot-row td {
+  font-weight:700; background: var(--surface2);
+  border-top: 2px solid var(--border);
+}
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+/* HIDDEN REPORT PRINT AREA */
+#reportPrintArea {
+  position: absolute; left: -9999px;
+  background: #ffffff !important;
+  color: #111 !important;
+  padding: 20px; width: 700px;
+  font-family: Arial, sans-serif;
+}
+#reportPrintArea * {
+  background-color: transparent;
+  color: inherit;
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="header-logo">
+    <div class="logo-icon">💰</div>
+    <div>
+      <div class="logo-text">Hisab Master</div>
+      <div class="logo-sub">Smart Finance</div>
+    </div>
+  </div>
+  <div class="header-date" id="headerDate"></div>
+</header>
+
+<!-- CONTAINER -->
+<div class="container">
+
+  <!-- BANK SUMMARY (always visible) -->
+  <div class="bank-summary-card">
+    <div class="total-balance-label">કુલ બેલેન્સ</div>
+    <div class="total-balance-amt" id="totalBalance"><span>₹</span>0</div>
+    <div class="bank-chips" id="bankChips"></div>
+  </div>
+
+  <!-- ENTRY SECTION -->
+  <section id="entrySec" class="active">
+    <div class="sec-head">
+      <div class="sec-head-icon" style="background:var(--green-dim)">✏️</div>
+      નવી એન્ટ્રી
+    </div>
+    <div class="card">
+      <div class="type-toggle">
+        <button class="type-btn expense selected" id="expBtn" onclick="setType('Expense')">
+          <span>↓</span> જાવક
+        </button>
+        <button class="type-btn income" id="incBtn" onclick="setType('Income')">
+          <span>↑</span> આવક
+        </button>
+      </div>
+      <div class="form-row">
+        <div>
+          <label class="field-label">કેટેગરી</label>
+          <select id="entCat"></select>
+        </div>
+        <div>
+          <label class="field-label">બેંક</label>
+          <select id="entBank"></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label class="field-label">રકમ (₹)</label>
+          <input type="number" id="entAmt" placeholder="0.00">
+        </div>
+        <div>
+          <label class="field-label">તારીખ</label>
+          <input type="date" id="entDate">
+        </div>
+      </div>
+      <div class="form-row full">
+        <div>
+          <label class="field-label">વિગત / નોંધ</label>
+          <input type="text" id="entNote" placeholder="વૈકલ્પિક...">
+        </div>
+      </div>
+      <button class="btn btn-green" onclick="addEntry()">✓ &nbsp; સેવ કરો</button>
+    </div>
+  </section>
+
+  <!-- LIST SECTION -->
+  <section id="allEntriesSec">
+    <div class="sec-head">
+      <div class="sec-head-icon" style="background:var(--blue-dim)">📋</div>
+      ટ્રાન્ઝેક્શન લિસ્ટ
+    </div>
+    <div class="card">
+      <div id="allEntriesList"></div>
+    </div>
+  </section>
+
+  <!-- TRANSFER SECTION -->
+  <section id="transferSec">
+    <div class="sec-head">
+      <div class="sec-head-icon" style="background:var(--blue-dim)">🔄</div>
+      બેંક ટ્રાન્સફર
+    </div>
+    <div class="card">
+      <div class="form-row">
+        <div>
+          <label class="field-label">થી</label>
+          <select id="tfFrom"></select>
+        </div>
+        <div>
+          <label class="field-label">ને</label>
+          <select id="tfTo"></select>
+        </div>
+      </div>
+      <div class="transfer-arrow">⇅</div>
+      <div class="form-row full">
+        <div>
+          <label class="field-label">રકમ (₹)</label>
+          <input type="number" id="tfAmt" placeholder="0.00">
+        </div>
+      </div>
+      <button class="btn btn-blue" onclick="processTransfer()">🔄 &nbsp; ટ્રાન્સફર કરો</button>
+    </div>
+  </section>
+
+  <!-- LOAN SECTION -->
+  <section id="loanSec">
+    <div class="sec-head">
+      <div class="sec-head-icon" style="background:var(--gold-dim)">🤝</div>
+      લોન / ઉધાર
+    </div>
+    <div class="card">
+      <div class="form-row">
+        <div>
+          <label class="field-label">વ્યક્તિ</label>
+          <select id="loanPersonSelect"></select>
+        </div>
+        <div>
+          <label class="field-label">પ્રકાર</label>
+          <select id="loanType">
+            <option value="Given">લોન આપી</option>
+            <option value="Taken">લોન લીધી</option>
+            <option value="Recovery">પરત મળી (+)</option>
+            <option value="Return">પરત આપી (-)</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label class="field-label">રકમ (₹)</label>
+          <input type="number" id="loanAmt" placeholder="0.00">
+        </div>
+        <div>
+          <label class="field-label">બેંક</label>
+          <select id="loanBank"></select>
+        </div>
+      </div>
+      <button class="btn btn-green" style="background:linear-gradient(135deg,var(--gold),#e6a820);color:#1a1505;box-shadow:0 4px 20px rgba(255,193,77,0.25)" onclick="addLoan()">✓ &nbsp; સેવ કરો</button>
+    </div>
+    <div id="loanTablesInScreen"></div>
+  </section>
+
+  <!-- REPORTS SECTION -->
+  <section id="reportsSec">
+    <div class="sec-head">
+      <div class="sec-head-icon" style="background:rgba(255,140,66,0.12)">📊</div>
+      રિપોર્ટ
+    </div>
+    <div class="card">
+      <div class="date-filter">
+        <div>
+          <label class="field-label">થી</label>
+          <input type="date" id="reportFrom">
+        </div>
+        <div>
+          <label class="field-label">સુધી</label>
+          <input type="date" id="reportTo">
+        </div>
+        <button onclick="generateReport()">જુઓ</button>
+      </div>
+      <button class="btn btn-orange" onclick="downloadReportPDF()" style="margin-top:12px;margin-bottom:0">⬇ &nbsp; PDF ડાઉનલોડ</button>
+    </div>
+    <div id="reportArea"></div>
+  </section>
+
+  <!-- SETTINGS SECTION -->
+  <section id="settingsSec">
+    <div class="sec-head">
+      <div class="sec-head-icon" style="background:rgba(139,145,184,0.12)">⚙️</div>
+      સેટિંગ્સ
+    </div>
+    <!-- BANK MANAGEMENT -->
+    <div class="card">
+      <div class="card-title"><div class="card-title-dot" style="background:var(--blue)"></div> 🏦 Bank મેનેજ કરો</div>
+      <div class="form-row">
+        <div style="grid-column:span 2">
+          <label class="field-label">નવી Bank ઉમેરો</label>
+          <div style="display:flex;gap:8px">
+            <input type="text" id="newBankName" placeholder="Bank નું નામ... (HDFC, SBI, Cash...)">
+            <button class="btn btn-blue" onclick="addBank()" style="width:auto;padding:12px 18px;white-space:nowrap">+ ઉમેરો</button>
+          </div>
+        </div>
+      </div>
+      <div id="bankListDisplay"></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><div class="card-title-dot"></div> નવી કેટેગરી ઉમેરો</div>
+      <div class="form-row">
+        <div>
+          <label class="field-label">નામ</label>
+          <input type="text" id="newCatName" placeholder="નામ...">
+        </div>
+        <div>
+          <label class="field-label">પ્રકાર</label>
+          <select id="newCatType">
+            <option value="exp">જાવક</option>
+            <option value="inc">આવક</option>
+            <option value="loan">વ્યક્તિ</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn btn-green" onclick="addNewCategory()">+ &nbsp; ઉમેરો</button>
+    </div>
+    <div class="card" id="catListDisplay"></div>
+    <div class="card">
+      <div class="card-title"><div class="card-title-dot" style="background:var(--blue)"></div> ડેટા</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <button class="btn btn-outline" onclick="downloadData()" style="padding:12px">📤 Export</button>
+        <button class="btn btn-outline" onclick="document.getElementById('fileInput').click()" style="padding:12px">📥 Import</button>
+      </div>
+      <input type="file" id="fileInput" style="display:none" onchange="uploadData(event)">
+      <button class="btn btn-blue" onclick="syncFromCloud()">☁ Firebase Sync</button>
+    </div>
+  </section>
+
+</div>
+
+<!-- BOTTOM NAV -->
+<nav>
+  <button class="nav-btn active" onclick="showSec('entry')" id="btn-entry">
+    <i class="las la-edit"></i><span>એન્ટ્રી</span>
+  </button>
+  <button class="nav-btn" onclick="showSec('allEntries')" id="btn-allEntries">
+    <i class="las la-history"></i><span>લિસ્ટ</span>
+  </button>
+  <button class="nav-btn" onclick="showSec('transfer')" id="btn-transfer">
+    <i class="las la-sync"></i><span>ટ્રાન્સફર</span>
+  </button>
+  <button class="nav-btn" onclick="showSec('loan')" id="btn-loan">
+    <i class="las la-hand-holding-usd"></i><span>લોન</span>
+  </button>
+  <button class="nav-btn" onclick="showSec('reports')" id="btn-reports">
+    <i class="las la-chart-bar"></i><span>રિપોર્ટ</span>
+  </button>
+  <button class="nav-btn" onclick="showSec('settings')" id="btn-settings">
+    <i class="las la-user-cog"></i><span>સેટિંગ્સ</span>
+  </button>
+</nav>
+
+<!-- TOAST -->
+<div class="toast" id="toast">
+  <div class="toast-dot"></div>
+  <span id="toastMsg"></span>
+</div>
+
+<!-- Hidden print area -->
+<div id="reportPrintArea"></div>
+
+<script>
+// FIREBASE
+const firebaseConfig={apiKey:"AIzaSyCD8mmRpN-iju_TmyEqganjmdTy3twOjvM",databaseURL:"https://gopi-a-default-rtdb.firebaseio.com"};
+firebase.initializeApp(firebaseConfig);
+const database=firebase.database(), myMobile="9099337049";
+
+// Load saved data
+const _saved = JSON.parse(localStorage.getItem('smartHisab'));
+let db;
+if(_saved) {
+  db = _saved;
+  // Migrate: જૂના data માં bankNames ન હોય તો banks object ના keys લઈ લો
+  if(!db.bankNames || db.bankNames.length === 0) {
+    db.bankNames = Object.keys(db.banks);
+  }
+  // જૂના banks object માં જે હોય તે bankNames માં ઉમેરો
+  Object.keys(db.banks).forEach(b=>{ if(!db.bankNames.includes(b)) db.bankNames.push(b); });
+  // bankNames માં જે હોય તેની balance ensure કરો
+  db.bankNames.forEach(b=>{ if(db.banks[b]===undefined) db.banks[b]=0; });
+  if(!db.cats) db.cats={exp:['શાકભાજી'],inc:['પગાર'],loan:['મિત્ર 1']};
+  if(!db.entries) db.entries=[];
+  if(!db.loans) db.loans=[];
+} else {
+  // નવો user - default 4 banks
+  db = {
+    banks:{"Bank 1":0,"Bank 2":0,"Bank 3":0,"Bank 4":0},
+    bankNames:["Bank 1","Bank 2","Bank 3","Bank 4"],
+    entries:[], loans:[],
+    cats:{exp:['શાકભાજી','ઇંધણ','દવા'],inc:['પગાર','વ્યવસાય'],loan:['મિત્ર 1']}
+  };
+}
+
+let currentType = 'Expense';
+
+// TOAST
+function toast(msg, color='var(--green)') {
+  const t = document.getElementById('toast');
+  t.querySelector('.toast-dot').style.background = color;
+  document.getElementById('toastMsg').textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// DATE HEADER
+function updateDateHeader() {
+  const d = new Date();
+  const opts = { weekday:'short', day:'numeric', month:'short', year:'numeric' };
+  document.getElementById('headerDate').textContent = d.toLocaleDateString('gu-IN', opts);
+}
+
+// SAVE
+function save() {
+  localStorage.setItem('smartHisab', JSON.stringify(db));
+  database.ref('users/' + myMobile).set(db);
+  renderBanks();
+  renderLoanSummary();
+}
+
+// BANKS - DYNAMIC
+function getBankOptions(selectedBank) {
+  return db.bankNames.map(b=>`<option${b===selectedBank?' selected':''}>${b}</option>`).join('');
+}
+
+function refreshAllBankDropdowns() {
+  ['entBank','loanBank'].forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    const cur=el.value; el.innerHTML=getBankOptions(cur);
+  });
+  ['tfFrom','tfTo'].forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    const cur=el.value; el.innerHTML=getBankOptions(cur);
+  });
+}
+
+function renderBanks() {
+  let total = 0;
+  let chips = '';
+  db.bankNames.forEach(b => {
+    const bal = db.banks[b] || 0;
+    total += bal;
+    const cls = bal >= 0 ? 'positive' : 'negative';
+    chips += `<div class="bank-chip">
+      <div class="bank-chip-name">${b}</div>
+      <div class="bank-chip-amt ${cls}">₹${fmt(Math.abs(bal))}${bal<0?'<span style="font-size:10px;color:var(--red)"> ⬇</span>':''}</div>
+    </div>`;
+  });
+  document.getElementById('bankChips').innerHTML = chips;
+  const tot = document.getElementById('totalBalance');
+  tot.innerHTML = `<span>₹</span>${fmt(total)}`;
+  tot.style.color = total >= 0 ? 'var(--green)' : 'var(--red)';
+  updateCategories();
+  document.getElementById('loanPersonSelect').innerHTML = db.cats.loan.map(c=>`<option>${c}</option>`).join('');
+  refreshAllBankDropdowns();
+}
+
+function fmt(n) { return Number(n).toLocaleString('en-IN'); }
+
+// TYPE TOGGLE
+function setType(t) {
+  currentType = t;
+  document.getElementById('expBtn').classList.toggle('selected', t==='Expense');
+  document.getElementById('incBtn').classList.toggle('selected', t==='Income');
+  updateCategories();
+}
+
+function updateCategories() {
+  const k = currentType === 'Income' ? 'inc' : 'exp';
+  document.getElementById('entCat').innerHTML = db.cats[k].map(c=>`<option>${c}</option>`).join('');
+}
+
+// ICON for entry
+function entryIcon(e) {
+  if(e.type==='Income') return {icon:'↑',cls:'income'};
+  if(e.type==='Transfer') return {icon:'⇄',cls:'transfer'};
+  if(e.cat && e.cat.startsWith('Loan')) return {icon:'🤝',cls:'loan'};
+  return {icon:'↓',cls:'expense'};
+}
+
+// ADD ENTRY
+function addEntry() {
+  const a = parseFloat(document.getElementById('entAmt').value);
+  if(!a) { toast('રકમ દાખલ કરો', 'var(--red)'); return; }
+  const b = document.getElementById('entBank').value;
+  const c = document.getElementById('entCat').value;
+  const n = document.getElementById('entNote').value || '-';
+  const d = document.getElementById('entDate').value || new Date().toISOString().split('T')[0];
+  db.entries.unshift({id:Date.now(),date:d,cat:c,note:n,bank:b,amt:a,type:currentType});
+  db.banks[b] += (currentType==='Income' ? a : -a);
+  save();
+  document.getElementById('entAmt').value='';
+  document.getElementById('entNote').value='';
+  toast('✓ સેવ થઈ ગયું!');
+}
+
+// RENDER LIST
+function renderAllEntries() {
+  const list = document.getElementById('allEntriesList');
+  if(!db.entries.length) { list.innerHTML='<p style="color:var(--text-dim);text-align:center;padding:20px">કોઈ એન્ટ્રી નથી</p>'; return; }
+  list.innerHTML = db.entries.map(e => {
+    const {icon,cls} = entryIcon(e);
+    const sign = e.type==='Income' ? '+' : (e.type==='Transfer' ? '' : '-');
+    return `<div class="entry-item">
+      <div class="entry-icon ${cls}">${icon}</div>
+      <div class="entry-info">
+        <div class="entry-cat">${e.cat}</div>
+        <div class="entry-meta">${e.date} &nbsp;·&nbsp; ${e.bank} &nbsp;·&nbsp; ${e.note}</div>
+      </div>
+      <div class="entry-right">
+        <div class="entry-amt ${cls}">${sign}₹${fmt(e.amt)}</div>
+        <button class="entry-del" onclick="deleteEntry(${e.id})">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function deleteEntry(id) {
+  if(!confirm('ડીલીટ કરવું છે?')) return;
+  const i = db.entries.findIndex(e=>e.id===id);
+  if(i!==-1) {
+    const e = db.entries[i];
+    if(e.bank!=='Transfer') db.banks[e.bank] += (e.type==='Income' ? -e.amt : e.amt);
+    db.entries.splice(i,1);
+    save(); renderAllEntries();
+    toast('ડીલીટ થઈ ગઈ', 'var(--red)');
+  }
+}
+
+// TRANSFER
+function processTransfer() {
+  const a = parseFloat(document.getElementById('tfAmt').value);
+  const f = document.getElementById('tfFrom').value;
+  const t = document.getElementById('tfTo').value;
+  if(!a) { toast('રકમ દાખલ કરો','var(--red)'); return; }
+  if(f===t) { toast('અલગ બેંક પસંદ કરો','var(--red)'); return; }
+  db.banks[f]-=a; db.banks[t]+=a;
+  db.entries.unshift({id:Date.now(),date:new Date().toISOString().split('T')[0],cat:`Transfer: ${f}➔${t}`,note:'Transfer',bank:'Transfer',amt:a,type:'Transfer'});
+  save(); document.getElementById('tfAmt').value='';
+  toast(`₹${fmt(a)} ટ્રાન્સફર સફળ!`);
+}
+
+// LOAN
+function addLoan() {
+  const a = parseFloat(document.getElementById('loanAmt').value);
+  const p = document.getElementById('loanPersonSelect').value;
+  const t = document.getElementById('loanType').value;
+  const b = document.getElementById('loanBank').value;
+  if(!a) { toast('રકમ દાખલ કરો','var(--red)'); return; }
+  if(t==='Recovery'||t==='Return') {
+    const tg = t==='Recovery'?'Given':'Taken';
+    const ex = db.loans.find(l=>l.person===p&&l.type===tg);
+    if(ex) {
+      ex.rem-=a;
+      db.banks[b]+=(t==='Recovery'?a:-a);
+      db.entries.unshift({id:Date.now(),date:new Date().toISOString().split('T')[0],cat:`Loan ${t}: ${p}`,note:'Settlement',bank:b,amt:a,type:(t==='Recovery'?'Income':'Expense'),isLoan:true});
+      if(ex.rem<=0) db.loans=db.loans.filter(l=>l.id!==ex.id);
+    } else { toast('કોઈ લોન નહીં','var(--red)'); return; }
+  } else {
+    const ex = db.loans.find(l=>l.person===p&&l.type===t);
+    if(ex) ex.rem+=a; else db.loans.push({id:Date.now(),person:p,type:t,rem:a});
+    db.banks[b]+=(t==='Taken'?a:-a);
+    db.entries.unshift({id:Date.now(),date:new Date().toISOString().split('T')[0],cat:`Loan ${t}: ${p}`,note:'New Loan',bank:b,amt:a,type:(t==='Taken'?'Income':'Expense'),isLoan:true});
+  }
+  save(); document.getElementById('loanAmt').value='';
+  toast('✓ લોન સેવ!', 'var(--gold)');
+}
+
+function renderLoanSummary() {
+  const mkSection = (type, title, cls) => {
+    const items = db.loans.filter(l=>l.type===type);
+    if(!items.length) return '';
+    let total = 0;
+    let rows = items.map(l=>{total+=l.rem; return `<div class="loan-person-card">
+      <div><div class="loan-person-name">${l.person}</div><div style="font-size:11px;color:var(--text-dim)">${type==='Given'?'આપેલ':'લીધેલ'}</div></div>
+      <div class="loan-person-amt ${cls}">₹${fmt(l.rem)}</div>
+    </div>`;}).join('');
+    return `<div class="card"><div class="card-title"><div class="card-title-dot" style="background:${cls==='given'?'var(--green)':'var(--red)'}"></div>${title}</div>${rows}
+      <div style="display:flex;justify-content:space-between;padding-top:8px;border-top:1px solid var(--border);margin-top:4px">
+        <span style="color:var(--text-dim);font-size:12px">કુલ</span>
+        <span style="font-weight:700;color:${cls==='given'?'var(--green)':'var(--red)'};font-size:16px">₹${fmt(total)}</span>
+      </div></div>`;
+  };
+  document.getElementById('loanTablesInScreen').innerHTML =
+    mkSection('Given','લેવાના (ઉધાર આપ્યા)','given') +
+    mkSection('Taken','દેવાના (ઉધાર લીધા)','taken');
+}
+
+// REPORT
+function generateReport() {
+  const f = document.getElementById('reportFrom').value;
+  const t = document.getElementById('reportTo').value;
+  if(!f||!t) { toast('તારીખ પસંદ કરો','var(--red)'); return; }
+
+  let iS={}, eS={}, tI=0, tE=0;
+  db.entries.filter(e=>e.date>=f&&e.date<=t&&e.type!=='Transfer'&&!e.cat.startsWith('Loan ')).forEach(e=>{
+    if(e.type==='Income'){ iS[e.cat]=(iS[e.cat]||0)+e.amt; tI+=e.amt; }
+    else { eS[e.cat]=(eS[e.cat]||0)+e.amt; tE+=e.amt; }
+  });
+
+  const savings = tI - tE;
+
+  // Simple category row with expandable detail button
+  const mkCatRow = (cat, amt, type, color) => {
+    const entries = db.entries.filter(e=>
+      e.date>=f && e.date<=t && e.cat===cat && e.type===type
+    );
+    const detailRows = entries.map(e=>
+      `<tr>
+        <td style="padding:6px 8px;border-bottom:1px solid var(--border);font-size:11px;color:var(--text-mid);white-space:nowrap">${e.date}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text)">${(e.note && e.note!=='-') ? e.note : '<span style=\'color:var(--text-dim)\'>—</span>'}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid var(--border);font-size:11px;color:var(--text-dim)">${e.bank}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid var(--border);font-size:12px;text-align:right;font-weight:700;color:${color}">₹${fmt(e.amt)}</td>
+      </tr>`
+    ).join('');
+
+    const uid = 'det_' + cat.replace(/\s+/g,'_') + '_' + type;
+    return `<tr>
+      <td style="padding:8px 10px;border-bottom:1px solid var(--border)">${cat}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right;font-weight:700;color:${color}">₹${fmt(amt)}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:center">
+        <button onclick="toggleDetail('${uid}')" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:6px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;touch-action:manipulation" id="btn_${uid}">▼ વિગત</button>
+      </td>
+    </tr>
+    <tr id="${uid}" style="display:none">
+      <td colspan="3" style="padding:0;background:var(--surface2)">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr style="background:var(--surface)">
+            <th style="padding:5px 8px;font-size:10px;color:var(--text-dim);font-weight:600;text-align:left;border-bottom:1px solid var(--border)">તારીખ</th>
+            <th style="padding:5px 8px;font-size:10px;color:var(--text-dim);font-weight:600;text-align:left;border-bottom:1px solid var(--border)">નોંધ</th>
+            <th style="padding:5px 8px;font-size:10px;color:var(--text-dim);font-weight:600;text-align:left;border-bottom:1px solid var(--border)">Bank</th>
+            <th style="padding:5px 8px;font-size:10px;color:var(--text-dim);font-weight:600;text-align:right;border-bottom:1px solid var(--border)">₹</th>
+          </tr></thead>
+          <tbody>${detailRows}</tbody>
+        </table>
+      </td>
+    </tr>`;
+  };
+
+  const mkTable = (data, type, color, label) => {
+    if(!Object.keys(data).length) return '';
+    const totalAmt = Object.values(data).reduce((s,v)=>s+v,0);
+    const rows = Object.entries(data).map(([k,v])=>mkCatRow(k,v,type,color)).join('');
+    return `<div class="card">
+      <div class="card-title"><div class="card-title-dot" style="background:${color}"></div>${label}</div>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr>
+          <th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;background:var(--surface2);border-bottom:1px solid var(--border)">કેટેગરી</th>
+          <th style="padding:8px 10px;text-align:right;font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;background:var(--surface2);border-bottom:1px solid var(--border)">રકમ</th>
+          <th style="padding:8px 10px;text-align:center;font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;background:var(--surface2);border-bottom:1px solid var(--border)">વિગત</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr style="background:var(--surface2)">
+          <td style="padding:10px;font-weight:700;border-top:2px solid var(--border)">કુલ</td>
+          <td style="padding:10px;font-weight:700;text-align:right;color:${color};border-top:2px solid var(--border)">₹${fmt(totalAmt)}</td>
+          <td style="border-top:2px solid var(--border)"></td>
+        </tr></tfoot>
+      </table>
+    </div>`;
+  };
+
+  // Loan entries in date range
+  const loanEntries = db.entries.filter(e=>
+    e.date>=f && e.date<=t && e.cat && e.cat.startsWith('Loan ')
+  );
+
+  // Current loan balances (all time, not date filtered)
+  const mkLoanSection = () => {
+    if(!db.loans.length && !loanEntries.length) return '';
+
+    // Current outstanding balances
+    let balRows = '';
+    const given = db.loans.filter(l=>l.type==='Given');
+    const taken = db.loans.filter(l=>l.type==='Taken');
+    let totalGiven=0, totalTaken=0;
+
+    given.forEach(l=>{ totalGiven+=l.rem;
+      balRows += `<tr>
+        <td style="padding:8px 10px;border-bottom:1px solid var(--border)">${l.person}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:11px;color:var(--text-dim)">લેવાના</td>
+        <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right;font-weight:700;color:var(--green)">₹${fmt(l.rem)}</td>
+      </tr>`;
+    });
+    taken.forEach(l=>{ totalTaken+=l.rem;
+      balRows += `<tr>
+        <td style="padding:8px 10px;border-bottom:1px solid var(--border)">${l.person}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:11px;color:var(--text-dim)">દેવાના</td>
+        <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right;font-weight:700;color:var(--red)">₹${fmt(l.rem)}</td>
+      </tr>`;
+    });
+
+    // Loan transactions in date range
+    let txRows = '';
+    loanEntries.forEach(e=>{
+      const isIn = e.type==='Income';
+      const color = isIn ? 'var(--green)' : 'var(--red)';
+      txRows += `<tr>
+        <td style="padding:6px 8px;border-bottom:1px solid var(--border);font-size:11px;color:var(--text-mid);white-space:nowrap">${e.date}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid var(--border);font-size:12px">${e.cat}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid var(--border);font-size:11px;color:var(--text-dim)">${e.bank}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:right;font-weight:700;font-size:12px;color:${color}">${isIn?'+':'-'}₹${fmt(e.amt)}</td>
+      </tr>`;
+    });
+
+    let html = `<div class="card">
+      <div class="card-title"><div class="card-title-dot" style="background:var(--gold)"></div>🤝 લોન / ઉધાર</div>`;
+
+    if(balRows) {
+      html += `<div style="font-size:11px;color:var(--text-dim);margin-bottom:8px;text-transform:uppercase;letter-spacing:.08em">હાલની બાકી</div>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
+        <thead><tr>
+          <th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;background:var(--surface2);border-bottom:1px solid var(--border)">વ્યક્તિ</th>
+          <th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;background:var(--surface2);border-bottom:1px solid var(--border)">પ્રકાર</th>
+          <th style="padding:8px 10px;text-align:right;font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;background:var(--surface2);border-bottom:1px solid var(--border)">બાકી</th>
+        </tr></thead>
+        <tbody>${balRows}</tbody>
+        <tfoot>
+          ${totalGiven>0?`<tr style="background:var(--surface2)"><td style="padding:8px 10px;font-weight:700;border-top:1px solid var(--border)" colspan="2">કુલ લેવાના</td><td style="padding:8px 10px;font-weight:700;text-align:right;color:var(--green);border-top:1px solid var(--border)">₹${fmt(totalGiven)}</td></tr>`:''}
+          ${totalTaken>0?`<tr style="background:var(--surface2)"><td style="padding:8px 10px;font-weight:700;border-top:1px solid var(--border)" colspan="2">કુલ દેવાના</td><td style="padding:8px 10px;font-weight:700;text-align:right;color:var(--red);border-top:1px solid var(--border)">₹${fmt(totalTaken)}</td></tr>`:''}
+        </tfoot>
+      </table>`;
+    }
+
+    if(txRows) {
+      html += `<div style="font-size:11px;color:var(--text-dim);margin-bottom:8px;text-transform:uppercase;letter-spacing:.08em">${f} → ${t} ની transactions</div>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr>
+          <th style="padding:7px 8px;text-align:left;font-size:10px;color:var(--text-dim);background:var(--surface2);border-bottom:1px solid var(--border)">તારીખ</th>
+          <th style="padding:7px 8px;text-align:left;font-size:10px;color:var(--text-dim);background:var(--surface2);border-bottom:1px solid var(--border)">વિગત</th>
+          <th style="padding:7px 8px;text-align:left;font-size:10px;color:var(--text-dim);background:var(--surface2);border-bottom:1px solid var(--border)">Bank</th>
+          <th style="padding:7px 8px;text-align:right;font-size:10px;color:var(--text-dim);background:var(--surface2);border-bottom:1px solid var(--border)">₹</th>
+        </tr></thead>
+        <tbody>${txRows}</tbody>
+      </table>`;
+    }
+
+    html += `</div>`;
+    return html;
+  };
+
+  document.getElementById('reportArea').innerHTML =
+    `<div class="savings-banner">
+      <div><div class="savings-label">${f} &nbsp;→&nbsp; ${t}</div><div class="savings-label" style="margin-top:4px">ચોખ્ખી બચત</div></div>
+      <div class="savings-amt">${savings>=0?'+':''}₹${fmt(savings)}</div>
+    </div>
+    <div class="report-summary-row">
+      <div class="report-stat"><div class="report-stat-label">કુલ આવક</div><div class="report-stat-val green">₹${fmt(tI)}</div></div>
+      <div class="report-stat"><div class="report-stat-label">કુલ જાવક</div><div class="report-stat-val red">₹${fmt(tE)}</div></div>
+    </div>` +
+    mkTable(iS,'Income','var(--green)','આવક') +
+    mkTable(eS,'Expense','var(--red)','જાવક') +
+    mkLoanSection();
+}
+
+function toggleDetail(uid) {
+  const row = document.getElementById(uid);
+  const btn = document.getElementById('btn_'+uid);
+  if(!row) return;
+  const visible = row.style.display !== 'none';
+  row.style.display = visible ? 'none' : 'table-row';
+  btn.textContent = visible ? '▼ વિગત' : '▲ બંધ';
+  btn.style.color = visible ? 'var(--text-dim)' : 'var(--gold)';
+  btn.style.borderColor = visible ? 'var(--border)' : 'var(--gold)';
+}
+
+// PDF - Auto download
+function downloadReportPDF() {
+  const f = document.getElementById('reportFrom').value;
+  const t = document.getElementById('reportTo').value;
+  if(!f||!t) { toast('પ્રથમ રિપોર્ટ જુઓ','var(--red)'); return; }
+
+  let iS={}, eS={}, tI=0, tE=0;
+  db.entries.filter(e=>e.date>=f&&e.date<=t&&e.type!=='Transfer'&&!e.cat.startsWith('Loan ')).forEach(e=>{
+    if(e.type==='Income'){ iS[e.cat]=(iS[e.cat]||0)+e.amt; tI+=e.amt; }
+    else { eS[e.cat]=(eS[e.cat]||0)+e.amt; tE+=e.amt; }
+  });
+  const loanTx = db.entries.filter(e=>e.date>=f&&e.date<=t&&e.cat&&e.cat.startsWith('Loan '));
+  const fmtP = n => Number(n).toLocaleString('en-IN');
+  const savings = tI - tE;
+
+  const mkSection = (data, type, color, title) => {
+    if(!Object.keys(data).length) return '';
+    let rows = '';
+    Object.entries(data).forEach(([cat,total])=>{
+      const ents = db.entries.filter(e=>e.date>=f&&e.date<=t&&e.cat===cat&&e.type===type);
+      rows += '<tr><td style="padding:7px 10px;border:1px solid #ddd;font-weight:600">'+cat+'</td>'
+        +'<td style="padding:7px 10px;border:1px solid #ddd;text-align:right;font-weight:700;color:'+color+'">&#8377;'+fmtP(total)+'</td>'
+        +'<td style="padding:7px 10px;border:1px solid #ddd;font-size:11px;color:#333">'
+        +ents.map(e=>e.date+' | '+((e.note&&e.note!=='-')?e.note:'—')+' | '+e.bank+' = &#8377;'+fmtP(e.amt)).join('<br/>')
+        +'</td></tr>';
+    });
+    const tot = Object.values(data).reduce((s,v)=>s+v,0);
+    return '<h3 style="margin:18px 0 6px;color:'+color+';border-bottom:2px solid '+color+';padding-bottom:4px;font-size:13px">'+title+'</h3>'
+      +'<table style="width:100%;border-collapse:collapse;font-size:11px">'
+      +'<thead><tr style="background:#f0f0f0">'
+      +'<th style="padding:6px 10px;border:1px solid #ccc;text-align:left">કેટેગરી</th>'
+      +'<th style="padding:6px 10px;border:1px solid #ccc;text-align:right">કુલ</th>'
+      +'<th style="padding:6px 10px;border:1px solid #ccc;text-align:left">વિગત</th>'
+      +'</tr></thead><tbody>'+rows+'</tbody>'
+      +'<tfoot><tr style="background:#f5f5f5;font-weight:700">'
+      +'<td style="padding:6px 10px;border:1px solid #ccc">કુલ</td>'
+      +'<td style="padding:6px 10px;border:1px solid #ccc;text-align:right;color:'+color+'">&#8377;'+fmtP(tot)+'</td>'
+      +'<td style="border:1px solid #ccc"></td>'
+      +'</tr></tfoot></table>';
+  };
+
+  const mkLoan = () => {
+    const given = db.loans.filter(l=>l.type==='Given');
+    const taken = db.loans.filter(l=>l.type==='Taken');
+    if(!given.length && !taken.length && !loanTx.length) return '';
+    let out = '<h3 style="margin:18px 0 6px;color:#b45309;border-bottom:2px solid #b45309;padding-bottom:4px;font-size:13px">લોન / ઉધાર</h3>';
+    if(given.length||taken.length) {
+      let tG=0,tT=0,bRows='';
+      given.forEach(l=>{ tG+=l.rem; bRows+='<tr><td style="padding:6px 10px;border:1px solid #ddd">'+l.person+'</td><td style="padding:6px 10px;border:1px solid #ddd">લેવાના</td><td style="padding:6px 10px;border:1px solid #ddd;text-align:right;font-weight:700;color:#2e7d32">&#8377;'+fmtP(l.rem)+'</td></tr>'; });
+      taken.forEach(l=>{ tT+=l.rem; bRows+='<tr><td style="padding:6px 10px;border:1px solid #ddd">'+l.person+'</td><td style="padding:6px 10px;border:1px solid #ddd">દેવાના</td><td style="padding:6px 10px;border:1px solid #ddd;text-align:right;font-weight:700;color:#c62828">&#8377;'+fmtP(l.rem)+'</td></tr>'; });
+      out += '<p style="font-size:11px;font-weight:700;color:#555;margin:8px 0 4px">હાલની બાકી</p>'
+        +'<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px">'
+        +'<thead><tr style="background:#fef3c7"><th style="padding:6px 10px;border:1px solid #ccc;text-align:left">વ્યક્તિ</th><th style="padding:6px 10px;border:1px solid #ccc">પ્રકાર</th><th style="padding:6px 10px;border:1px solid #ccc;text-align:right">બાકી</th></tr></thead>'
+        +'<tbody>'+bRows+'</tbody><tfoot>'
+        +(tG>0?'<tr style="background:#f0fdf4;font-weight:700"><td colspan="2" style="padding:6px 10px;border:1px solid #ccc">કુલ લેવાના</td><td style="padding:6px 10px;border:1px solid #ccc;text-align:right;color:#2e7d32">&#8377;'+fmtP(tG)+'</td></tr>':'')
+        +(tT>0?'<tr style="background:#fff1f2;font-weight:700"><td colspan="2" style="padding:6px 10px;border:1px solid #ccc">કુલ દેવાના</td><td style="padding:6px 10px;border:1px solid #ccc;text-align:right;color:#c62828">&#8377;'+fmtP(tT)+'</td></tr>':'')
+        +'</tfoot></table>';
+    }
+    if(loanTx.length) {
+      const txRows = loanTx.map(e=>'<tr><td style="padding:6px 10px;border:1px solid #ddd;font-size:10px">'+e.date+'</td><td style="padding:6px 10px;border:1px solid #ddd">'+e.cat+'</td><td style="padding:6px 10px;border:1px solid #ddd;font-size:10px;color:#666">'+e.bank+'</td><td style="padding:6px 10px;border:1px solid #ddd;text-align:right;font-weight:700;color:'+(e.type==='Income'?'#2e7d32':'#c62828')+'">'+(e.type==='Income'?'+':'-')+'&#8377;'+fmtP(e.amt)+'</td></tr>').join('');
+      out += '<p style="font-size:11px;font-weight:700;color:#555;margin:8px 0 4px">'+f+' — '+t+' Transactions</p>'
+        +'<table style="width:100%;border-collapse:collapse;font-size:11px">'
+        +'<thead><tr style="background:#fef3c7"><th style="padding:6px 10px;border:1px solid #ccc;text-align:left">તારીખ</th><th style="padding:6px 10px;border:1px solid #ccc;text-align:left">વિગત</th><th style="padding:6px 10px;border:1px solid #ccc;text-align:left">Bank</th><th style="padding:6px 10px;border:1px solid #ccc;text-align:right">&#8377;</th></tr></thead>'
+        +'<tbody>'+txRows+'</tbody></table>';
+    }
+    return out;
+  };
+
+  // Build full HTML string with no template literals - pure concatenation
+  const bodyHTML = '<div style="font-family:Arial,sans-serif;color:#111;background:#fff;padding:16px">'
+    +'<div style="text-align:center;border-bottom:3px solid #222;padding-bottom:10px;margin-bottom:14px">'
+    +'<h2 style="margin:0;font-size:18px">Smart Hisab Master - Report</h2>'
+    +'<p style="margin:4px 0;color:#555;font-size:12px">'+f+' to '+t+'</p>'
+    +'</div>'
+    +'<div style="display:flex;gap:10px;margin-bottom:14px">'
+    +'<div style="flex:1;background:#e8f5e9;border-radius:6px;padding:10px;text-align:center"><div style="font-size:10px;color:#555">કુલ આવક</div><div style="font-size:17px;font-weight:700;color:#2e7d32">&#8377;'+fmtP(tI)+'</div></div>'
+    +'<div style="flex:1;background:#ffebee;border-radius:6px;padding:10px;text-align:center"><div style="font-size:10px;color:#555">કુલ જાવક</div><div style="font-size:17px;font-weight:700;color:#c62828">&#8377;'+fmtP(tE)+'</div></div>'
+    +'<div style="flex:1;background:'+(savings>=0?'#e3f2fd':'#fff3e0')+';border-radius:6px;padding:10px;text-align:center"><div style="font-size:10px;color:#555">ચોખ્ખી બચત</div><div style="font-size:17px;font-weight:700;color:'+(savings>=0?'#1565c0':'#e65100')+'">'+(savings>=0?'+':'')+'&#8377;'+fmtP(savings)+'</div></div>'
+    +'</div>'
+    + mkSection(iS,'Income','#2e7d32','આવક વિગત')
+    + mkSection(eS,'Expense','#c62828','જાવક વિગત')
+    + mkLoan()
+    +'<p style="text-align:center;color:#aaa;font-size:10px;margin-top:16px;border-top:1px solid #eee;padding-top:8px">Smart Hisab Master</p>'
+    +'</div>';
+
+  // Create a visible div temporarily, generate PDF, then remove
+  const div = document.createElement('div');
+  div.style.cssText = 'position:fixed;top:0;left:0;width:794px;background:#fff;z-index:-9999;opacity:0;pointer-events:none;padding:0';
+  div.innerHTML = bodyHTML;
+  document.body.appendChild(div);
+
+  toast('PDF બનાવી રહ્યું છે...','var(--gold)');
+
+  setTimeout(() => {
+    html2pdf().set({
+      margin: [8,8,8,8],
+      filename: 'Hisab_'+f+'_'+t+'.pdf',
+      image: {type:'jpeg', quality:1},
+      html2canvas: {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        removeContainer: true,
+        logging: false,
+        windowWidth: 794
+      },
+      jsPDF: {unit:'mm', format:'a4', orientation:'portrait'}
+    }).from(div).save().then(() => {
+      document.body.removeChild(div);
+      toast('PDF Download થઈ ગઈ!','var(--green)');
+    });
+  }, 100);
+}
+
+
+// SETTINGS
+function renderSettings() {
+  let h = '';
+  [['exp','జाวక','var(--red)'],['inc','આवક','var(--green)'],['loan','વ્યક્તિ','var(--gold)']].forEach(([k,label,color])=>{
+    h+=`<div class="card-title" style="color:${color};margin-top:10px"><div class="card-title-dot" style="background:${color}"></div>${label}</div>`;
+    db.cats[k].forEach((c,i)=>{
+      h+=`<div class="settings-cat-item"><span class="cat-pill">${c}</span><button class="del-cat-btn" onclick="delCat('${k}',${i})">✕ Del</button></div>`;
+    });
+  });
+  document.getElementById('catListDisplay').innerHTML = `<div class="card-title"><div class="card-title-dot"></div>કેટેગરી લિસ્ટ</div>` + h;
+}
+
+function addNewCategory() {
+  const n = document.getElementById('newCatName').value.trim();
+  const t = document.getElementById('newCatType').value;
+  if(!n) { toast('નામ દાખલ કરો','var(--red)'); return; }
+  db.cats[t].push(n); save(); renderSettings();
+  document.getElementById('newCatName').value='';
+  toast(`✓ "${n}" ઉમેરાઈ`);
+}
+
+function delCat(k,i) {
+  if(!confirm('Delete?')) return;
+  db.cats[k].splice(i,1); save(); renderSettings();
+  toast('ડીલીટ','var(--red)');
+}
+
+// NAV
+function showSec(id) {
+  document.querySelectorAll('section').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id+'Sec').classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  const btn = document.getElementById('btn-'+id);
+  if(btn) btn.classList.add('active');
+  if(id==='allEntries') renderAllEntries();
+  if(id==='reports') renderCatFilterChips();
+  if(id==='settings') renderSettings();
+  if(id==='loan') renderLoanSummary();
+}
+
+// BACKUP
+function downloadData() {
+  const a=document.createElement('a');
+  a.href='data:text/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(db));
+  a.download='hisab_backup.json'; a.click();
+  toast('Export થઈ ગઈ!');
+}
+function uploadData(e) {
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=(ev)=>{try{db=JSON.parse(ev.target.result);save();location.reload();}catch{toast('Error!','var(--red)');}};
+  r.readAsText(f);
+}
+function syncFromCloud() {
+  toast('Syncing...','var(--blue)');
+  database.ref('users/'+myMobile).once('value').then(s=>{
+    if(s.exists()){db=s.val();save();location.reload();}
+    else toast('Cloud data નહીં','var(--red)');
+  });
+}
+
+// INIT
+window.onload = () => {
+  updateDateHeader();
+  renderBanks();
+  renderLoanSummary();
+  const d = new Date().toISOString().split('T')[0];
+  document.getElementById('entDate').value = d;
+  document.getElementById('reportFrom').value = d;
+  document.getElementById('reportTo').value = d;
+  updateCategories();
+};
+</script>
+</body>
+</html>
