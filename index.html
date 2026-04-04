@@ -1986,33 +1986,75 @@ async function downloadReportPDF() {
     const doc = new jsPDF({orientation:'portrait', unit:'mm', format:'a4'});
     const PW=210, PH=297;
 
+
+    // ── Helper: trim trailing blank rows from canvas ───────────────
+    function trimCanvasBottom(canvas) {
+      const ctx = canvas.getContext('2d');
+      const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      let lastY = 20;
+      // Scan from bottom up, sample every 6th pixel for speed
+      for (let y = canvas.height - 1; y >= 20; y--) {
+        let hasContent = false;
+        for (let x = 0; x < canvas.width; x += 6) {
+          const i = (y * canvas.width + x) * 4;
+          if (data[i] < 245 || data[i+1] < 245 || data[i+2] < 245) {
+            hasContent = true; break;
+          }
+        }
+        if (hasContent) { lastY = y + 8; break; }
+      }
+      if (lastY >= canvas.height - 20) return canvas; // nothing to trim
+      const trimmed = document.createElement('canvas');
+      trimmed.width = canvas.width;
+      trimmed.height = lastY;
+      trimmed.getContext('2d').drawImage(canvas, 0, 0);
+      return trimmed;
+    }
+
     // ── Helper: capture div → one or more PDF pages ───────────────
     async function addDivAsPages(div) {
       div.style.position='absolute'; div.style.left='-9999px'; div.style.top='0';
       document.body.appendChild(div);
-      const canvas = await html2canvas(div, {scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false});
+      let canvas = await html2canvas(div, {scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false, scrollX:0, scrollY:0});
       document.body.removeChild(div);
 
-      const imgData = canvas.toDataURL('image/jpeg', 0.92);
-      const imgW = PW - 14;                          // 196mm
-      const pxPerMm = canvas.width / imgW;           // canvas pixels per mm
-      const pageHpx = (PH - 14) * pxPerMm;          // max canvas-px per page
+      // Trim trailing blank whitespace so we don't get empty PDF pages
+      canvas = trimCanvasBottom(canvas);
+
+      const imgW   = PW - 14;      // 196mm usable width per page
+      const imgHmm = PH - 18;      // 279mm usable height per page
+      const scale  = canvas.width / imgW;   // canvas pixels per mm
+      const pageHpx = imgHmm * scale;       // pixels that fit in one page height
       const totalHpx = canvas.height;
 
       let sliceTop = 0;
       let firstPage = true;
-      while(sliceTop < totalHpx) {
-        if(!firstPage) doc.addPage();
+
+      while (sliceTop < totalHpx) {
+        if (!firstPage) doc.addPage();
         firstPage = false;
-        const sliceH = Math.min(pageHpx, totalHpx - sliceTop);
-        const sliceHmm = sliceH / pxPerMm;
-        // sy = sliceTop/canvas.height * imgH_full
-        const imgHfull = (canvas.height / canvas.width) * imgW;
-        const sy = (sliceTop / canvas.height) * imgHfull;
-        doc.addImage(imgData, 'JPEG', 7, 7, imgW, imgHfull, '', 'FAST', 0, -sy);
-        // page footer
-        doc.setFontSize(7); doc.setTextColor(160,160,160);
-        doc.text('Smart Hisab Master  |  Page '+doc.internal.getNumberOfPages(), 105, 291, {align:'center'});
+
+        const sliceH   = Math.min(pageHpx, totalHpx - sliceTop);
+        const sliceHmm = sliceH / scale;
+
+        // Create a fresh canvas containing only this page's slice
+        const sliceCanvas = document.createElement('canvas');
+        sliceCanvas.width  = canvas.width;
+        sliceCanvas.height = Math.ceil(sliceH);
+        const ctx2 = sliceCanvas.getContext('2d');
+        ctx2.fillStyle = '#ffffff';
+        ctx2.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+        ctx2.drawImage(canvas,
+          0, sliceTop, canvas.width, sliceH,   // source rect
+          0, 0,        canvas.width, sliceH    // dest rect
+        );
+
+        const sliceData = sliceCanvas.toDataURL('image/jpeg', 0.95);
+        doc.addImage(sliceData, 'JPEG', 7, 7, imgW, sliceHmm);
+
+        // Page footer
+        doc.setFontSize(7); doc.setTextColor(160, 160, 160);
+        doc.text('Smart Hisab Master  |  Page ' + doc.internal.getNumberOfPages(), 105, 291, {align:'center'});
         sliceTop += sliceH;
       }
     }
@@ -2025,8 +2067,8 @@ async function downloadReportPDF() {
     const savings=tI-tE;
     const totalBal=Object.values(db.banks).reduce((s,v)=>s+v,0);
     const lastMonBal=totalBal-savings;
-    const rpa=n=>(n<0?'-':'')+'Rs.'+Number(Math.abs(n)).toLocaleString('en-IN');
-    const rp=n=>'Rs.'+Number(n).toLocaleString('en-IN');
+    const rpa=n=>(n<0?'-':'')+'₹'+Number(Math.abs(n)).toLocaleString('en-IN');
+    const rp=n=>'₹'+Number(n).toLocaleString('en-IN');
     const mnth=new Date(f).toLocaleString('gu-IN',{month:'long'});
     const yr=new Date(f).getFullYear();
     const incEntries=db.entries.filter(e=>e.date>=f&&e.date<=t&&e.type==='Income'&&!e.cat.startsWith('Loan '));
@@ -2255,32 +2297,32 @@ async function downloadReportPDF() {
       const grand=dates.reduce((s,d)=>s+dayTot[d],0);
 
       const dlyDiv=document.createElement('div');
-      dlyDiv.style.cssText='width:700px;padding:16px;background:#fff;font-family:Noto Sans Gujarati,sans-serif;';
-      const thS='padding:7px 8px;text-align:right;background:#fce8ec;border-bottom:2px solid #f5c6cb;font-size:11px;color:#d63350;font-weight:700;white-space:nowrap';
-      const headCols=cats.map(c=>`<th style="${thS}">${c}</th>`).join('');
+      // Dynamic width: date(70) + each cat(60) + total(70) + padding(32)
+      const dynW = Math.max(700, 70 + cats.length * 60 + 70 + 32);
+      dlyDiv.style.cssText='width:'+dynW+'px;padding:16px;background:#fff;font-family:Noto Sans Gujarati,sans-serif;';
+      const thS='padding:4px 5px;text-align:right;background:#fce8ec;border-bottom:2px solid #f5c6cb;font-size:9px;color:#d63350;font-weight:700;white-space:nowrap';
+      const headCols=cats.map(c=>`<th style="${thS};max-width:60px;overflow:hidden;text-overflow:ellipsis" title="${c}">${c}</th>`).join('');
       const dataRows=dates.map((d,i)=>{
-        const cells=cats.map(c=>{const v=mx[d][c]||0;return`<td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;font-size:11px;color:${v?'#d63350':'#ccc'}">${v?rp(v):'—'}</td>`;}).join('');
-        return`<tr style="background:${i%2?'#fff9fa':'#fff'}"><td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:11px;color:#666;white-space:nowrap">${d}</td>${cells}<td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;font-weight:700;font-size:11px;color:#d63350">${rp(dayTot[d])}</td></tr>`;
+        const cells=cats.map(c=>{const v=mx[d][c]||0;return`<td style="padding:3px 5px;border-bottom:1px solid #eee;text-align:right;font-size:9px;color:${v?'#d63350':'#ccc'};white-space:nowrap">${v?rp(v):'—'}</td>`;}).join('');
+        return`<tr style="background:${i%2?'#fff9fa':'#fff'}"><td style="padding:3px 5px;border-bottom:1px solid #eee;font-size:9px;color:#666;white-space:nowrap">${d}</td>${cells}<td style="padding:3px 5px;border-bottom:1px solid #eee;text-align:right;font-weight:700;font-size:9px;color:#d63350;white-space:nowrap">${rp(dayTot[d])}</td></tr>`;
       }).join('');
-      const totCells=cats.map(c=>`<td style="padding:7px 8px;text-align:right;font-weight:700;font-size:11px;color:#d63350;background:#fce8ec">${rp(catTot[c])}</td>`).join('');
+      const totCells=cats.map(c=>`<td style="padding:4px 5px;text-align:right;font-weight:700;font-size:9px;color:#d63350;background:#fce8ec;white-space:nowrap">${rp(catTot[c])}</td>`).join('');
 
       dlyDiv.innerHTML=`
-        <div style="background:#d63350;color:#fff;padding:10px 16px;border-radius:8px;margin-bottom:14px;font-weight:700;font-size:15px">📅 કેટેગરી મુજબ દૈનિક ખર્ચ — ${rp(grand)}</div>
-        <div style="overflow-x:auto">
-          <table style="width:100%;border-collapse:collapse;font-size:12px">
-            <thead><tr>
-              <th style="${thS};text-align:left;color:#333;background:#fce8ec">તારીખ</th>
-              ${headCols}
-              <th style="${thS}">કુલ ખર્ચ</th>
-            </tr></thead>
-            <tbody>${dataRows}</tbody>
-            <tfoot><tr>
-              <td style="padding:7px 8px;font-weight:700;background:#fce8ec;border-top:2px solid #d63350">કુલ</td>
-              ${totCells}
-              <td style="padding:7px 8px;text-align:right;font-weight:700;font-size:13px;color:#d63350;background:#fce8ec;border-top:2px solid #d63350">${rp(grand)}</td>
-            </tr></tfoot>
-          </table>
-        </div>`;
+        <div style="background:#d63350;color:#fff;padding:10px 16px;border-radius:8px;margin-bottom:14px;font-weight:700;font-size:14px">📅 કેટેગરી મુજબ દૈનિક ખર્ચ — ${rp(grand)}</div>
+        <table style="width:100%;border-collapse:collapse;font-size:9px;table-layout:auto">
+          <thead><tr>
+            <th style="${thS};text-align:left;color:#333;background:#fce8ec;min-width:70px">તારીખ</th>
+            ${headCols}
+            <th style="${thS};min-width:70px">કુલ ખર્ચ</th>
+          </tr></thead>
+          <tbody>${dataRows}</tbody>
+          <tfoot><tr>
+            <td style="padding:4px 5px;font-weight:700;background:#fce8ec;border-top:2px solid #d63350;font-size:9px">કુલ</td>
+            ${totCells}
+            <td style="padding:4px 5px;text-align:right;font-weight:700;font-size:10px;color:#d63350;background:#fce8ec;border-top:2px solid #d63350;white-space:nowrap">${rp(grand)}</td>
+          </tr></tfoot>
+        </table>`;
       await addDivAsPages(dlyDiv);
     }
 
@@ -2290,7 +2332,18 @@ async function downloadReportPDF() {
     doc.setFontSize(7); doc.setTextColor(160,160,160);
     doc.text('Smart Hisab Master  |  Page 1/'+totalPgs, 105, 291, {align:'center'});
 
-    doc.save('HisabReport_'+f+'_'+t+'.pdf');
+    // Save PDF — use Blob URL for better mobile/share support
+    const pdfName = 'HisabReport_'+f+'_'+t+'.pdf';
+    try {
+      const blob = doc.output('blob');
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl; a.download = pdfName;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(()=>URL.revokeObjectURL(blobUrl), 8000);
+    } catch(e) {
+      doc.save(pdfName); // fallback
+    }
     toast('✓ PDF (' + totalPgs + ' pages) ડાઉનલોડ!','var(--green)');
   } catch(err) {
     console.error(err);
@@ -2397,7 +2450,7 @@ function showListAddPanel() {
   document.getElementById('lapAmt').value = '';
   document.getElementById('lapNote').value = '';
   document.getElementById('lapBank').innerHTML = getBankOptions(db.bankNames[0]||'');
-  setListAddType('Expense');
+  setListAddType(listAddType); // preserve last selected type — do NOT reset to Expense
   p.scrollIntoView({behavior:'smooth',block:'start'});
 }
 function hideListAddPanel() {
@@ -2417,12 +2470,13 @@ function addEntryFromList() {
   const c = document.getElementById('lapCat').value;
   const n = document.getElementById('lapNote').value || '-';
   const d = document.getElementById('lapDate').value || new Date().toISOString().split('T')[0];
+  const savedListType = listAddType; // capture before save
   db.entries.unshift({id:Date.now(),date:d,cat:c,note:n,bank:b,amt:a,type:listAddType});
   db.banks[b] += (listAddType==='Income' ? a : -a);
   save();
   document.getElementById('lapAmt').value='';
   document.getElementById('lapNote').value='';
-  hideListAddPanel();
+  setListAddType(savedListType); // keep type as-is (fix: don't reset via hideListAddPanel)
   renderAllEntries();
   toast('✓ સેવ થઈ ગયું!');
 }
