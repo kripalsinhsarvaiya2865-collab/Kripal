@@ -1008,13 +1008,6 @@ nav {
       <div class="sec-head-icon" style="background:rgba(139,145,184,0.12)">⚙️</div>
       સેટિંગ્સ
     </div>
-    <!-- OPENING BALANCE -->
-    <div class="card" style="border-color:rgba(43,114,204,0.3)">
-      <div class="card-title"><div class="card-title-dot" style="background:var(--blue)"></div> 🏦 Opening Balance સેટ કરો</div>
-      <p style="font-size:11px;color:var(--text-dim);margin-bottom:14px;line-height:1.5">જૂનો balance enter કરો — આ income/expense નથી, ફક્ત bank balance set થશે.</p>
-      <div id="openingBalFields"></div>
-      <button class="btn btn-blue" onclick="saveOpeningBalances()" style="margin-top:4px">✓ &nbsp; Balance સેટ કરો</button>
-    </div>
     <!-- BANK MANAGEMENT -->
     <div class="card">
       <div class="card-title"><div class="card-title-dot" style="background:var(--blue)"></div> 🏦 Bank મેનેજ કરો</div>
@@ -1442,15 +1435,65 @@ function renderAllEntries() {
   }).join('');
 }
 
+// LOAN TRACKING HELPER — entry delete/edit time db.loans.rem update
+function _loanParseCat(cat) {
+  if(!cat) return null;
+  const m = cat.match(/^Loan (Given|Taken|Recovery|Return): (.+)$/);
+  return m ? {action: m[1], person: m[2]} : null;
+}
+function _loanReverse(e) {
+  // Entry ने delete/edit undo करतां db.loans.rem reverse करो
+  if(!e.isLoan) return;
+  const p = _loanParseCat(e.cat); if(!p) return;
+  const {action, person} = p;
+  if(action === 'Given' || action === 'Taken') {
+    // Given/Taken add: rem += amt. Reverse: rem -= amt
+    const idx = db.loans.findIndex(l => l.person===person && l.type===action);
+    if(idx!==-1) {
+      db.loans[idx].rem -= e.amt;
+      if(db.loans[idx].rem <= 0) db.loans.splice(idx, 1);
+    }
+  } else if(action === 'Recovery') {
+    // Recovery add: Given.rem -= amt. Reverse: Given.rem += amt
+    const idx = db.loans.findIndex(l => l.person===person && l.type==='Given');
+    if(idx!==-1) { db.loans[idx].rem += e.amt; }
+    else { db.loans.push({id:Date.now(), person, type:'Given', rem:e.amt}); }
+  } else if(action === 'Return') {
+    // Return add: Taken.rem -= amt. Reverse: Taken.rem += amt
+    const idx = db.loans.findIndex(l => l.person===person && l.type==='Taken');
+    if(idx!==-1) { db.loans[idx].rem += e.amt; }
+    else { db.loans.push({id:Date.now(), person, type:'Taken', rem:e.amt}); }
+  }
+}
+function _loanApplyAmtDiff(entry, diff) {
+  // Edit time: amt diff (newAmt - oldAmt) ne db.loans.rem ma apply karo
+  if(!entry.isLoan || diff===0) return;
+  const p = _loanParseCat(entry.cat); if(!p) return;
+  const {action, person} = p;
+  if(action === 'Given' || action === 'Taken') {
+    const idx = db.loans.findIndex(l => l.person===person && l.type===action);
+    if(idx!==-1) db.loans[idx].rem += diff;
+  } else if(action === 'Recovery') {
+    const idx = db.loans.findIndex(l => l.person===person && l.type==='Given');
+    if(idx!==-1) db.loans[idx].rem -= diff;
+  } else if(action === 'Return') {
+    const idx = db.loans.findIndex(l => l.person===person && l.type==='Taken');
+    if(idx!==-1) db.loans[idx].rem -= diff;
+  }
+}
+
 function deleteEntry(id) {
   if(!confirm('ડીલીટ કરવું છે?')) return;
   const i = db.entries.findIndex(e=>e.id===id);
   if(i!==-1) {
     const e = db.entries[i];
-    // ગ.મ. બેલ. entries bank balance affect ન કરવો (isLastMon flag)
+    // Bank balance reverse (Transfer & LastMon ne skip)
     if(e.bank!=='Transfer' && !e.isLastMon) {
+      if(!db.banks[e.bank] && db.banks[e.bank]!==0) db.banks[e.bank] = 0;
       db.banks[e.bank] += (e.type==='Income' ? -e.amt : e.amt);
     }
+    // Loan rem reverse
+    _loanReverse(e);
     db.entries.splice(i,1);
     save(); renderAllEntries();
     toast('ડીલીટ થઈ ગઈ', 'var(--red)');
@@ -1489,15 +1532,22 @@ function saveEditEntry() {
   const newNote = document.getElementById('editNote').value || '-';
   if(!newAmt) { toast('રકમ દાખલ કરો','var(--red)'); return; }
 
-  // Reverse old bank effect
+  // — Bank balance: old effect reverse —
   if(old.bank !== 'Transfer' && !old.isLastMon) {
+    if(!db.banks[old.bank] && db.banks[old.bank]!==0) db.banks[old.bank] = 0;
     db.banks[old.bank] += (old.type==='Income' ? -old.amt : old.amt);
   }
-  // Apply new bank effect
+  // — Bank balance: new effect apply —
   if(newBank !== 'Transfer' && !old.isLastMon) {
+    if(!db.banks[newBank] && db.banks[newBank]!==0) db.banks[newBank] = 0;
     db.banks[newBank] += (old.type==='Income' ? newAmt : -newAmt);
   }
-  // Update entry
+  // — Loan rem update (if amt or bank changed) —
+  if(old.isLoan) {
+    const amtDiff = newAmt - old.amt;
+    _loanApplyAmtDiff(old, amtDiff);
+  }
+  // — Update entry —
   db.entries[i] = {...old, amt:newAmt, bank:newBank, cat:newCat, date:newDate, note:newNote};
   save(); renderAllEntries(); closeEditModal();
   toast('✓ Entry Update થઈ!', 'var(--blue)');
