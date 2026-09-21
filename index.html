@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Smart Hisab Master</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#00936e">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Gujarati:wght@300;400;600;700&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://maxst.icons8.com/vue-static/landings/line-awesome/line-awesome/1.3.0/css/line-awesome.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -687,6 +689,22 @@ nav {
   background-color: transparent;
   color: inherit;
 }
+
+/* ── CREDIT CARD ── */
+.entry-tab.tab-card { border-color: #6c47d9; }
+.entry-tab.active.tab-card { background: rgba(108,71,217,0.10); color: #6c47d9; }
+.bank-chip.cc-chip { border-color: rgba(108,71,217,0.35); background: rgba(108,71,217,0.05); }
+.cc-bar { height: 5px; border-radius: 4px; background: var(--border); overflow: hidden; margin-top: 6px; }
+.cc-bar > i { display: block; height: 100%; background: #6c47d9; border-radius: 4px; }
+.cc-sub { font-size: 9px; color: var(--text-dim); margin-top: 4px; }
+.cc-mode {
+  padding: 10px; border-radius: 8px; border: 1.5px solid var(--border);
+  background: var(--surface2); color: var(--text-dim);
+  font-family: inherit; font-size: 12px; font-weight: 700;
+  cursor: pointer; touch-action: manipulation;
+}
+.cc-mode.on-spend { border-color: var(--red);   background: var(--red-dim);   color: var(--red); }
+.cc-mode.on-pay   { border-color: var(--green); background: var(--green-dim); color: var(--green); }
 </style>
 </head>
 <body>
@@ -706,6 +724,9 @@ nav {
 <!-- CONTAINER -->
 <div class="container">
 
+  <!-- REMINDER BANNER -->
+  <div id="remBanner"></div>
+
   <!-- BANK SUMMARY (always visible) -->
   <div class="bank-summary-card">
     <div class="total-balance-label">કુલ બેલેન્સ</div>
@@ -721,12 +742,15 @@ nav {
     </div>
 
     <!-- 4 Entry Tabs -->
-    <div class="entry-tab-bar" style="grid-template-columns:repeat(4,1fr)">
+    <div class="entry-tab-bar" style="grid-template-columns:repeat(5,1fr)">
       <button class="entry-tab tab-javak active" id="etab-javak" onclick="switchEntryTab('javak')">
         <span class="etab-icon">↓</span><span>જાવક</span>
       </button>
       <button class="entry-tab tab-avak" id="etab-avak" onclick="switchEntryTab('avak')">
         <span class="etab-icon">↑</span><span>આવક</span>
+      </button>
+      <button class="entry-tab tab-card" id="etab-card" onclick="switchEntryTab('card')">
+        <span class="etab-icon">💳</span><span>કાર્ડ</span>
       </button>
       <button class="entry-tab tab-lastmon" id="etab-lastmon" onclick="switchEntryTab('lastmon')">
         <span class="etab-icon">📅</span><span>ગ.મ. બેલ.</span>
@@ -768,6 +792,84 @@ nav {
         </div>
       </div>
       <button class="btn btn-green" id="mainSaveBtn" onclick="addEntry()">✓ &nbsp; સેવ કરો</button>
+    </div>
+
+    <!-- PANEL: Credit Card -->
+    <div class="card" id="formCard" style="display:none">
+      <div style="font-size:12px;font-weight:700;color:#6c47d9;margin-bottom:12px;display:flex;align-items:center;gap:6px">
+        <span>💳</span><span>ક્રેડિટ કાર્ડ</span>
+      </div>
+      <div id="ccNotifHint"></div>
+
+      <div id="ccEmpty" style="font-size:12px;color:var(--text-dim);line-height:1.6;margin-bottom:12px">હજી કોઈ કાર્ડ નથી. નીચે કાર્ડ ઉમેરો — લિમિટ સેટ કરો અને ખર્ચ કરતા રહો.</div>
+
+      <div id="ccMain">
+        <label class="field-label">કાર્ડ</label>
+        <select id="ccSelect" onchange="renderCardTab()"></select>
+        <div id="ccSummary"></div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+          <button id="ccBtnSpend" class="cc-mode on-spend" onclick="setCcMode('spend')">↓ ખર્ચ (વાપરો)</button>
+          <button id="ccBtnPay" class="cc-mode" onclick="setCcMode('pay')">↑ ભરપાઈ (પાછા)</button>
+        </div>
+
+        <div class="form-row full" id="ccCatRow">
+          <div>
+            <label class="field-label">કેટેગરી</label>
+            <select id="ccCat"></select>
+          </div>
+        </div>
+        <div class="form-row full" id="ccBankRow" style="display:none">
+          <div>
+            <label class="field-label">કઈ બેંકમાંથી ભરપાઈ</label>
+            <select id="ccBank"></select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div>
+            <label class="field-label">રકમ (₹)</label>
+            <input type="number" id="ccAmt" placeholder="0.00">
+          </div>
+          <div>
+            <label class="field-label">તારીખ</label>
+            <input type="date" id="ccDate">
+          </div>
+        </div>
+        <div class="form-row full">
+          <div>
+            <label class="field-label">વિગત / નોંધ</label>
+            <input type="text" id="ccNote" placeholder="વૈકલ્પિક...">
+          </div>
+        </div>
+        <button class="btn btn-green" id="ccSaveBtn" style="background:linear-gradient(135deg,#6c47d9,#8a63f2);box-shadow:0 4px 20px rgba(108,71,217,0.25)" onclick="saveCardEntry()">✓ &nbsp; કાર્ડ ખર્ચ સેવ કરો</button>
+      </div>
+
+      <!-- Add / manage cards -->
+      <div style="margin-top:18px;padding-top:14px;border-top:1px dashed var(--border)">
+        <div style="font-size:11px;font-weight:700;color:var(--text-mid);margin-bottom:10px">➕ નવું કાર્ડ ઉમેરો / લિમિટ સેટ કરો</div>
+        <div class="form-row">
+          <div>
+            <label class="field-label">કાર્ડનું નામ</label>
+            <input type="text" id="ccNewName" placeholder="HDFC, SBI...">
+          </div>
+          <div>
+            <label class="field-label">લિમિટ (₹)</label>
+            <input type="number" id="ccNewLimit" placeholder="50000">
+          </div>
+        </div>
+        <div class="form-row">
+          <div>
+            <label class="field-label">ડ્યુ ડેટ (દર મહિને)</label>
+            <input type="number" id="ccNewDue" placeholder="1 થી 31" min="1" max="31">
+          </div>
+          <div>
+            <label class="field-label">અત્યારે વપરાયેલ (₹)</label>
+            <input type="number" id="ccNewUsed" placeholder="0">
+          </div>
+        </div>
+        <button class="btn btn-outline" onclick="addCard()" style="padding:12px;margin-bottom:10px">+ &nbsp; કાર્ડ ઉમેરો</button>
+        <div id="ccList"></div>
+      </div>
     </div>
 
     <!-- PANEL 2: Last Month Balance (bank balance adjust only) -->
@@ -1008,6 +1110,16 @@ nav {
       <div class="sec-head-icon" style="background:rgba(139,145,184,0.12)">⚙️</div>
       સેટિંગ્સ
     </div>
+    <!-- REMINDERS -->
+    <div class="card">
+      <div class="card-title"><div class="card-title-dot" style="background:var(--gold)"></div> 🔔 રિમાઇન્ડર / નોટિફિકેશન</div>
+      <p style="font-size:11px;color:var(--text-dim);line-height:1.7;margin-bottom:10px">• ક્રેડિટ કાર્ડ ડ્યુ ડેટના 2 દિવસ પહેલેથી (બાકી રકમ હોય તો)<br>• 2 દિવસ સુધી કોઈ એન્ટ્રી ન પડે તો દર 2 દિવસે એક વાર<br>• એન્ટ્રી પડતી હોય તો કોઈ નોટિફિકેશન નહીં</p>
+      <div id="remStatus" style="font-size:12px;color:var(--text-mid);line-height:1.8;margin-bottom:12px"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <button class="btn btn-blue" onclick="remEnable()" style="padding:12px">🔔 ચાલુ કરો</button>
+        <button class="btn btn-outline" onclick="remTest()" style="padding:12px">ટેસ્ટ</button>
+      </div>
+    </div>
     <!-- BANK MANAGEMENT -->
     <div class="card">
       <div class="card-title"><div class="card-title-dot" style="background:var(--blue)"></div> 🏦 Bank મેનેજ કરો</div>
@@ -1145,12 +1257,13 @@ if(_saved) {
   if(!db.cats.loan) db.cats.loan = ['મિત્ર 1'];
   if(!db.entries) db.entries=[];
   if(!db.loans) db.loans=[];
+  if(!db.cards) db.cards=[];
 } else {
   // નવો user - default 4 banks
   db = {
     banks:{"Bank 1":0,"Bank 2":0,"Bank 3":0,"Bank 4":0},
     bankNames:["Bank 1","Bank 2","Bank 3","Bank 4"],
-    entries:[], loans:[],
+    entries:[], loans:[], cards:[],
     cats:{exp:['શાકભાજી','ઇંધણ','દવા'],inc:['પગાર','વ્યવસાય'],loan:['મિત્ર 1']}
   };
 }
@@ -1176,6 +1289,8 @@ function updateDateHeader() {
 // SAVE
 function save() {
   localStorage.setItem('smartHisab', JSON.stringify(db));
+  localStorage.setItem('smartHisabAct', String(Date.now()));   // છેલ્લું કામ (reminder માટે)
+  if(typeof remSyncPlan==='function') remSyncPlan();
   database.ref('users/' + myMobile).set(db);
   renderBanks();
   renderLoanSummary();
@@ -1209,7 +1324,19 @@ function renderBanks() {
       <div class="bank-chip-amt ${cls}">₹${fmt(Math.abs(bal))}${bal<0?'<span style="font-size:10px;color:var(--red)"> ⬇</span>':''}</div>
     </div>`;
   });
+  // 💳 Credit cards — બેંકની બાજુમાં (total balance માં ગણાતા નથી)
+  (db.cards||[]).forEach(c => {
+    const avail = (c.limit||0) - (c.used||0);
+    const pct = c.limit>0 ? Math.min(100, Math.round((c.used||0)/c.limit*100)) : 0;
+    chips += `<div class="bank-chip cc-chip">
+      <div class="bank-chip-name">💳 ${escH(c.name)}</div>
+      <div class="bank-chip-amt" style="color:${avail>=0?'#6c47d9':'var(--red)'}">₹${fmt(avail)}</div>
+      <div class="cc-bar"><i style="width:${pct}%"></i></div>
+      <div class="cc-sub">વપરાયેલ ₹${fmt(c.used||0)} / ₹${fmt(c.limit||0)}</div>
+    </div>`;
+  });
   document.getElementById('bankChips').innerHTML = chips;
+  remRenderBanner();
   const tot = document.getElementById('totalBalance');
   tot.innerHTML = `<span>₹</span>${fmt(total)}`;
   tot.style.color = total >= 0 ? 'var(--green)' : 'var(--red)';
@@ -1225,12 +1352,13 @@ let currentEntryTab = 'javak';
 
 function switchEntryTab(tab) {
   currentEntryTab = tab;
-  ['javak','avak','lastmon','bachat'].forEach(t => {
+  ['javak','avak','card','lastmon','bachat'].forEach(t => {
     const btn = document.getElementById('etab-'+t);
     if(btn) btn.classList.toggle('active', t===tab);
   });
   const showMain = tab==='javak' || tab==='avak';
   document.getElementById('formMain').style.display    = showMain ? '' : 'none';
+  document.getElementById('formCard').style.display    = tab==='card' ? '' : 'none';
   document.getElementById('formLastMon').style.display = tab==='lastmon' ? '' : 'none';
   document.getElementById('formBachat').style.display  = tab==='bachat' ? '' : 'none';
 
@@ -1246,6 +1374,9 @@ function switchEntryTab(tab) {
     document.getElementById('entryTypeLabel').innerHTML = '<span>↑</span><span>આવક એન્ટ્રી</span>';
     document.getElementById('mainSaveBtn').className = 'btn btn-green';
     updateCategories();
+  } else if(tab==='card') {
+    setCcMode(ccMode);
+    renderCardTab();
   } else if(tab==='lastmon') {
     document.getElementById('lastMonBank').innerHTML = getBankOptions(db.bankNames[0]||'');
     document.getElementById('lastMonAmt').value = '';
@@ -1309,6 +1440,8 @@ function addBachat() {
 
 // ICON for entry
 function entryIcon(e) {
+  if(e.isCard)    return {icon:'💳',cls:'expense'};
+  if(e.isCardPay) return {icon:'💳',cls:'transfer'};
   if(e.isBachat || e.cat==='બચત (Saving)') return {icon:'💰',cls:'transfer'};
   if(e.type==='Income') return {icon:'↑',cls:'income'};
   if(e.type==='Transfer') return {icon:'⇄',cls:'transfer'};
@@ -1417,7 +1550,7 @@ function renderAllEntries() {
       catLine = '🔄 ટ્રાન્સફર';
       metaLine = e.date + ' &nbsp;·&nbsp; <span style="color:var(--blue);font-weight:600">' + parts + '</span>';
     }
-    const editBtn = isTransfer ? '' : `<button class="entry-del" style="color:var(--blue);font-size:15px" onclick="editEntry(${e.id})">✏️</button>`;
+    const editBtn = (isTransfer || e.isCard) ? '' : `<button class="entry-del" style="color:var(--blue);font-size:15px" onclick="editEntry(${e.id})">✏️</button>`;
     return `<div class="entry-item">
       <div class="entry-icon ${cls}">${icon}</div>
       <div class="entry-info">
@@ -1487,6 +1620,16 @@ function deleteEntry(id) {
   const i = db.entries.findIndex(e=>e.id===id);
   if(i!==-1) {
     const e = db.entries[i];
+    if(e.isCard) {
+      // Card ખર્ચ ડીલીટ → લિમિટ પાછી
+      const cc = ccFind(e.cardId);
+      if(cc) cc.used = Math.max(0, (cc.used||0) - e.amt);
+    } else if(e.isCardPay) {
+      // Card ભરપાઈ ડીલીટ → વપરાયેલ રકમ પાછી ચડે, બેંકમાં પૈસા પાછા
+      const cc = ccFind(e.cardId);
+      if(cc) cc.used = (cc.used||0) + e.amt;
+      if(e.srcBank && db.banks[e.srcBank]!==undefined) db.banks[e.srcBank] += e.amt;
+    } else
     // Bank balance reverse (Transfer & LastMon ne skip)
     if(e.bank!=='Transfer' && !e.isLastMon) {
       if(!db.banks[e.bank] && db.banks[e.bank]!==0) db.banks[e.bank] = 0;
@@ -2462,6 +2605,7 @@ function renderSettings() {
     });
   });
   document.getElementById('catListDisplay').innerHTML = `<div class="card-title"><div class="card-title-dot"></div>કેટેગરી લિસ્ટ</div>` + h;
+  remRenderStatus();
 }
 
 function saveOpeningBalances() {
@@ -2531,6 +2675,299 @@ function addEntryFromList() {
   toast('✓ સેવ થઈ ગયું!');
 }
 
+// ═══════════════════════════════════════════════
+// 💳 CREDIT CARD SYSTEM
+// ═══════════════════════════════════════════════
+function escH(s){return String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
+function todayLocal(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function ccCards(){ if(!db.cards) db.cards=[]; return db.cards; }
+function ccFind(id){ return ccCards().find(c=>String(c.id)===String(id)); }
+function ccAvail(c){ return (c.limit||0)-(c.used||0); }
+function ccLabel(c){ return c.name+' (Card)'; }   // entry.bank / report માં દેખાતું નામ
+
+let ccMode = 'spend';   // 'spend' = ખર્ચ, 'pay' = ભરપાઈ
+function setCcMode(m){
+  ccMode = m;
+  document.getElementById('ccBtnSpend').className = 'cc-mode' + (m==='spend' ? ' on-spend' : '');
+  document.getElementById('ccBtnPay').className   = 'cc-mode' + (m==='pay'   ? ' on-pay'   : '');
+  document.getElementById('ccCatRow').style.display  = m==='spend' ? '' : 'none';
+  document.getElementById('ccBankRow').style.display = m==='pay'   ? '' : 'none';
+  document.getElementById('ccSaveBtn').innerHTML = m==='spend' ? '✓ &nbsp; કાર્ડ ખર્ચ સેવ કરો' : '✓ &nbsp; કાર્ડ ભરપાઈ સેવ કરો';
+}
+
+function renderCardTab(){
+  const cards = ccCards();
+  const has = cards.length > 0;
+  document.getElementById('ccMain').style.display = has ? '' : 'none';
+  document.getElementById('ccEmpty').style.display = has ? 'none' : '';
+  const sel = document.getElementById('ccSelect');
+  const cur = sel.value;
+  sel.innerHTML = cards.map(c=>`<option value="${c.id}"${String(c.id)===cur?' selected':''}>${escH(c.name)}</option>`).join('');
+
+  if(has){
+    const c = ccFind(sel.value) || cards[0];
+    const avail = ccAvail(c);
+    const pct = c.limit>0 ? Math.min(100, Math.round((c.used||0)/c.limit*100)) : 0;
+    const nd = remNextDue(c, new Date());
+    const dueTxt = c.dueDay
+      ? `ડ્યુ ડેટ: દર મહિને ${c.dueDay} તારીખ (${nd.left===0?'આજે':nd.left+' દિવસ બાકી'})`
+      : 'ડ્યુ ડેટ સેટ નથી';
+    document.getElementById('ccSummary').innerHTML = `
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px;margin:12px 0">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim)"><span>વાપરી શકાય તેવી લિમિટ</span><span>કુલ લિમિટ ₹${fmt(c.limit)}</span></div>
+        <div style="font-size:24px;font-weight:700;color:${avail>=0?'#6c47d9':'var(--red)'};margin:2px 0 6px">₹${fmt(avail)}</div>
+        <div class="cc-bar"><i style="width:${pct}%"></i></div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-top:8px;color:var(--text-mid)"><span>વપરાયેલ ₹${fmt(c.used||0)}</span><span>${dueTxt}</span></div>
+      </div>`;
+    const catSel = document.getElementById('ccCat'); const cc = catSel.value;
+    catSel.innerHTML = db.cats.exp.map(x=>`<option${x===cc?' selected':''}>${escH(x)}</option>`).join('');
+    const bSel = document.getElementById('ccBank'); const cb = bSel.value;
+    bSel.innerHTML = '<option value="">— બેંકમાંથી ન કાપો —</option>' + db.bankNames.map(b=>`<option${b===cb?' selected':''}>${escH(b)}</option>`).join('');
+    if(!document.getElementById('ccDate').value) document.getElementById('ccDate').value = todayLocal();
+  }
+
+  // કાર્ડ લિસ્ટ (edit / delete)
+  document.getElementById('ccList').innerHTML = cards.map(c=>`
+    <div class="settings-cat-item">
+      <span class="cat-pill">💳 ${escH(c.name)} · ₹${fmt(c.limit)} · ડ્યુ ${c.dueDay||'-'}</span>
+      <span style="display:flex;gap:6px">
+        <button class="del-cat-btn" style="color:var(--blue)" onclick="editCard(${c.id})">✏️</button>
+        <button class="del-cat-btn" onclick="delCard(${c.id})">✕ Del</button>
+      </span>
+    </div>`).join('');
+
+  // notification hint
+  const hint = document.getElementById('ccNotifHint');
+  if(hint){
+    const need = ('Notification' in window) && Notification.permission !== 'granted';
+    hint.innerHTML = need
+      ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--gold-dim);border:1px solid var(--gold);border-radius:10px;padding:8px 10px;margin-bottom:12px;font-size:11px;color:var(--text-mid)"><span>🔔 ડ્યુ ડેટ રિમાઇન્ડર માટે નોટિફિકેશન ચાલુ કરો</span><button onclick="remEnable()" style="background:var(--gold);color:#fff;border:none;border-radius:8px;padding:6px 10px;font-family:inherit;font-size:11px;font-weight:700;cursor:pointer">ચાલુ કરો</button></div>`
+      : '';
+  }
+}
+
+function addCard(){
+  const n = document.getElementById('ccNewName').value.trim();
+  const lim = parseFloat(document.getElementById('ccNewLimit').value);
+  const due = parseInt(document.getElementById('ccNewDue').value, 10);
+  const used = parseFloat(document.getElementById('ccNewUsed').value) || 0;
+  if(!n){ toast('કાર્ડનું નામ દાખલ કરો','var(--red)'); return; }
+  if(!lim || lim<=0){ toast('લિમિટ દાખલ કરો','var(--red)'); return; }
+  if(!due || due<1 || due>31){ toast('ડ્યુ ડેટ 1 થી 31 વચ્ચે લખો','var(--red)'); return; }
+  if(used<0 || used>lim){ toast('વપરાયેલ રકમ લિમિટથી વધુ ન હોય','var(--red)'); return; }
+  if(ccCards().some(c=>c.name===n)){ toast('આ કાર્ડ પહેલેથી છે','var(--red)'); return; }
+  const c = {id:Date.now(), name:n, limit:lim, used:used, dueDay:due};
+  ccCards().push(c);
+  save();
+  ['ccNewName','ccNewLimit','ccNewDue','ccNewUsed'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('ccSelect').value = c.id;
+  renderCardTab();
+  toast('✓ "'+n+'" કાર્ડ ઉમેરાયું','#6c47d9');
+  if('Notification' in window && Notification.permission==='default') remEnable();
+}
+function editCard(id){
+  const c = ccFind(id); if(!c) return;
+  const l = prompt('નવી લિમિટ (₹)', c.limit); if(l===null) return;
+  const d = prompt('ડ્યુ ડેટ (દર મહિનાની તારીખ 1-31)', c.dueDay||''); if(d===null) return;
+  const lim = parseFloat(l), due = parseInt(d,10);
+  if(!lim || lim<=0 || !due || due<1 || due>31){ toast('સાચી વિગત લખો','var(--red)'); return; }
+  c.limit = lim; c.dueDay = due;
+  save(); renderCardTab(); toast('✓ કાર્ડ Update થયું','var(--blue)');
+}
+function delCard(id){
+  const c = ccFind(id); if(!c) return;
+  if(!confirm('"'+c.name+'" કાર્ડ ડીલીટ કરવું? જૂની એન્ટ્રી લિસ્ટમાં રહેશે.')) return;
+  db.cards = ccCards().filter(x=>String(x.id)!==String(id));
+  save(); renderCardTab(); toast('કાર્ડ ડીલીટ','var(--red)');
+}
+
+function saveCardEntry(){
+  const c = ccFind(document.getElementById('ccSelect').value);
+  if(!c){ toast('કાર્ડ પસંદ કરો','var(--red)'); return; }
+  const a = parseFloat(document.getElementById('ccAmt').value);
+  if(!a || a<=0){ toast('રકમ દાખલ કરો','var(--red)'); return; }
+  const d = document.getElementById('ccDate').value || todayLocal();
+  const n = document.getElementById('ccNote').value || '-';
+
+  if(ccMode==='spend'){
+    if(a > ccAvail(c)){ toast('લિમિટ પૂરી! બાકી લિમિટ ₹'+fmt(ccAvail(c)),'var(--red)'); return; }
+    const cat = document.getElementById('ccCat').value;
+    db.entries.unshift({id:Date.now(),date:d,cat:cat,note:n,bank:ccLabel(c),amt:a,type:'Expense',isCard:true,cardId:c.id});
+    c.used = (c.used||0) + a;
+    toast('💳 ખર્ચ સેવ! બાકી લિમિટ ₹'+fmt(ccAvail(c)),'#6c47d9');
+  } else {
+    if(a > (c.used||0)){ toast('વપરાયેલ રકમ ફક્ત ₹'+fmt(c.used||0)+' છે','var(--red)'); return; }
+    const src = document.getElementById('ccBank').value;
+    if(src) db.banks[src] = (db.banks[src]||0) - a;
+    c.used = (c.used||0) - a;
+    db.entries.unshift({id:Date.now(),date:d,cat:`Transfer: ${src||'બહારથી'}➔💳 ${c.name}`,note:(n==='-'?'Card Payment':n),bank:'Transfer',amt:a,type:'Transfer',isCardPay:true,cardId:c.id,srcBank:src});
+    toast('✓ ભરપાઈ સેવ! લિમિટ પાછી મળી: ₹'+fmt(ccAvail(c)),'var(--green)');
+  }
+  save();
+  document.getElementById('ccAmt').value = '';
+  document.getElementById('ccNote').value = '';
+  renderCardTab();
+}
+
+function ccGoPay(id){
+  showSec('entry');
+  switchEntryTab('card');
+  document.getElementById('ccSelect').value = id;
+  setCcMode('pay');
+  renderCardTab();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// ═══════════════════════════════════════════════
+// 🔔 REMINDERS (ડ્યુ ડેટ + 2 દિવસ એન્ટ્રી નહીં)
+// ═══════════════════════════════════════════════
+// (આ જ logic sw.js માં પણ છે — background માટે)
+const REM_DAY = 86400000;
+function remDueOn(y,m,d){ const last = new Date(y,m+1,0).getDate(); return new Date(y,m,Math.min(d,last)); }
+function remNextDue(c, nowDate){
+  const today = new Date(nowDate); today.setHours(0,0,0,0);
+  let due = remDueOn(today.getFullYear(), today.getMonth(), c.dueDay||1);
+  if(due < today) due = remDueOn(today.getFullYear(), today.getMonth()+1, c.dueDay||1);
+  return {due, left: Math.round((due-today)/REM_DAY)};
+}
+function remCompute(plan, st, now){
+  const out = [];
+  (plan.cards||[]).forEach(c=>{
+    if(!c.dueDay || !(c.used>0)) return;               // બાકી રકમ ન હોય તો રિમાઇન્ડર નહીં
+    const nd = remNextDue(c, new Date(now));
+    if(nd.left <= 2){
+      const key = 'card:'+c.id+':'+nd.due.getFullYear()+'-'+nd.due.getMonth()+':'+nd.left;
+      if(!(st.notified||{})[key]){
+        const when = nd.left===0 ? 'આજે' : (nd.left===1 ? 'કાલે' : nd.left+' દિવસ પછી');
+        out.push({key, tag:'card-'+c.id, title:'💳 '+c.name+' — ડ્યુ ડેટ',
+          body:'ક્રેડિટ કાર્ડનું ડ્યુ ડેટ '+when+' ('+nd.due.getDate()+' તારીખ) છે. બાકી રકમ ₹'+Number(c.used).toLocaleString('en-IN')});
+      }
+    }
+  });
+  const last = plan.lastActivity || now;
+  if(now - last >= 2*REM_DAY && now - (st.lastNudge||0) >= 2*REM_DAY){
+    out.push({key:'nudge', tag:'nudge', title:'📝 હિસાબ એન્ટ્રી બાકી છે',
+      body:'છેલ્લા 2 દિવસથી કોઈ એન્ટ્રી પડી નથી. ખર્ચ / આવક લખી લો.'});
+  }
+  return out;
+}
+
+// IndexedDB (page + service worker વચ્ચે share)
+function kvOpen(){ return new Promise((res,rej)=>{ const r=indexedDB.open('hisab-rem',1); r.onupgradeneeded=()=>r.result.createObjectStore('kv'); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+function kvGet(k){ return kvOpen().then(d=>new Promise((res,rej)=>{ const q=d.transaction('kv').objectStore('kv').get(k); q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error); })); }
+function kvSet(k,v){ return kvOpen().then(d=>new Promise((res,rej)=>{ const t=d.transaction('kv','readwrite'); t.objectStore('kv').put(v,k); t.oncomplete=()=>res(); t.onerror=()=>rej(t.error); })); }
+
+function remLastActivity(){
+  let v = parseInt(localStorage.getItem('smartHisabAct'),10);
+  if(!v){
+    v = Math.max(0, ...db.entries.map(e=>+e.id||0));
+    if(!v || v>Date.now()) v = Date.now();
+    localStorage.setItem('smartHisabAct', String(v));
+  }
+  return v;
+}
+function remBuildPlan(){
+  return {
+    cards: ccCards().map(c=>({id:c.id,name:c.name,used:c.used||0,dueDay:c.dueDay})),
+    lastActivity: remLastActivity()
+  };
+}
+function remSyncPlan(){ try{ kvSet('plan', remBuildPlan()).catch(()=>{}); }catch(e){} }
+
+async function remShow(r){
+  try{
+    if(!('Notification' in window) || Notification.permission!=='granted') return false;
+    const opts = {body:r.body, tag:r.tag, icon:'icon-192.png', badge:'icon-192.png', vibrate:[200,100,200], data:{url:'./'}};
+    const reg = ('serviceWorker' in navigator) ? await navigator.serviceWorker.getRegistration() : null;
+    if(reg && reg.showNotification){ await reg.showNotification(r.title, opts); return true; }
+    new Notification(r.title, opts); return true;
+  }catch(e){ return false; }
+}
+
+async function remTick(){
+  try{
+    const plan = remBuildPlan();
+    await kvSet('plan', plan);
+    if(document.visibilityState==='visible') return;   // એપ ખુલ્લી હોય ત્યારે banner દેખાય છે
+    const st = (await kvGet('state')) || {}; st.notified = st.notified||{}; st.lastNudge = st.lastNudge||0;
+    const now = Date.now();
+    for(const r of remCompute(plan, st, now)){
+      if(await remShow(r)){
+        if(r.key==='nudge') st.lastNudge = now; else st.notified[r.key] = now;
+      }
+    }
+    Object.keys(st.notified).forEach(k=>{ if(now - st.notified[k] > 40*REM_DAY) delete st.notified[k]; });
+    await kvSet('state', st);
+  }catch(e){}
+}
+
+// એપમાં ઉપર દેખાતું alert (2 દિવસમાં ડ્યુ ડેટ હોય અને બાકી રકમ હોય તો)
+function remRenderBanner(){
+  const el = document.getElementById('remBanner'); if(!el) return;
+  const now = new Date();
+  el.innerHTML = ccCards().filter(c=>c.dueDay && (c.used||0)>0).map(c=>{
+    const nd = remNextDue(c, now);
+    if(nd.left>2) return '';
+    const when = nd.left===0 ? 'આજે' : (nd.left===1 ? 'કાલે' : nd.left+' દિવસ પછી');
+    return `<div style="background:var(--gold-dim);border:1.5px solid var(--gold);border-radius:14px;padding:12px 14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <div style="font-size:12px;color:var(--text);line-height:1.5"><b>⚠️ ${escH(c.name)}</b> નું ડ્યુ ડેટ <b>${when}</b> (${nd.due.getDate()} તારીખ)<br><span style="color:var(--text-mid)">બાકી રકમ ₹${fmt(c.used)}</span></div>
+      <button onclick="ccGoPay(${c.id})" style="background:var(--gold);color:#fff;border:none;border-radius:10px;padding:8px 12px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">ભરપાઈ</button>
+    </div>`;
+  }).join('');
+}
+
+async function remRegisterSW(){
+  if(!('serviceWorker' in navigator)) return null;
+  try{
+    const reg = await navigator.serviceWorker.register('sw.js');
+    await navigator.serviceWorker.ready;
+    if('periodicSync' in reg){
+      try{ await reg.periodicSync.register('hisab-reminders', {minInterval: 12*60*60*1000}); }catch(e){}
+    }
+    remSyncPlan();
+    return reg;
+  }catch(e){ return null; }
+}
+async function remEnable(){
+  if(!('Notification' in window)){ toast('આ બ્રાઉઝરમાં નોટિફિકેશન સપોર્ટ નથી','var(--red)'); return; }
+  let p = Notification.permission;
+  if(p==='default') p = await Notification.requestPermission();
+  if(p!=='granted'){ toast('નોટિફિકેશન Allow કરવા પડશે (બ્રાઉઝર સેટિંગ્સ)','var(--red)'); remRenderStatus(); renderCardTab(); return; }
+  await remRegisterSW();
+  toast('✓ રિમાઇન્ડર ચાલુ થઈ ગયા!');
+  remRenderStatus(); renderCardTab();
+}
+async function remTest(){
+  if(!('Notification' in window) || Notification.permission!=='granted'){ await remEnable(); if(Notification.permission!=='granted') return; }
+  const ok = await remShow({tag:'test', title:'🔔 Smart Hisab', body:'નોટિફિકેશન બરાબર ચાલે છે ✓'});
+  toast(ok ? 'ટેસ્ટ નોટિફિકેશન મોકલ્યું' : 'નોટિફિકેશન બતાવી શકાયું નહીં', ok ? 'var(--green)' : 'var(--red)');
+}
+async function remRenderStatus(){
+  const el = document.getElementById('remStatus'); if(!el) return;
+  let perm = ('Notification' in window) ? Notification.permission : 'unsupported';
+  let sw = false, ps = false;
+  try{
+    if('serviceWorker' in navigator){
+      const reg = await navigator.serviceWorker.getRegistration();
+      sw = !!reg; ps = !!(reg && 'periodicSync' in reg);
+    }
+  }catch(e){}
+  const permTxt = perm==='granted' ? '✅ ચાલુ' : (perm==='denied' ? '❌ બ્લોક (બ્રાઉઝર સેટિંગ્સમાં Allow કરો)' : (perm==='unsupported' ? '❌ સપોર્ટ નથી' : '⚪ હજી ચાલુ નથી'));
+  el.innerHTML = `નોટિફિકેશન: <b>${permTxt}</b><br>Background service: <b>${sw?'✅ ચાલુ':'⚪ નથી (HTTPS + sw.js જોઈએ)'}</b>${sw && !ps ? ' <span style="color:var(--text-dim)">(આ ફોનમાં ફક્ત એપ ખુલ્લી/બ્રાઉઝર ચાલુ હોય ત્યારે)</span>':''}`;
+}
+
+function remInit(){
+  remLastActivity();
+  remRenderBanner();
+  if('serviceWorker' in navigator && location.protocol!=='file:'){
+    if('Notification' in window && Notification.permission==='granted') remRegisterSW();
+    else navigator.serviceWorker.register('sw.js').catch(()=>{});
+  }
+  document.addEventListener('visibilitychange', ()=>{ remRenderBanner(); remTick(); });
+  setInterval(remTick, 60*1000);
+  setTimeout(remTick, 3000);
+}
+
 // NAV
 function showSec(id) {
   document.querySelectorAll('section').forEach(s=>s.classList.remove('active'));
@@ -2581,6 +3018,7 @@ window.onload = () => {
   document.getElementById('listFrom').value = firstDay;
   document.getElementById('listTo').value = d;
   switchEntryTab('javak');
+  remInit();
 };
 </script>
 </body>
