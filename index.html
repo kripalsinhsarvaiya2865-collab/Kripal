@@ -936,7 +936,7 @@ nav {
   <section id="transferSec">
     <div class="sec-head">
       <div class="sec-head-icon" style="background:var(--blue-dim)">🔄</div>
-      બેંક ટ્રાન્સફર
+      બેંક / કાર્ડ ટ્રાન્સફર
     </div>
     <div class="card">
       <div class="form-row">
@@ -1270,7 +1270,7 @@ function refreshAllBankDropdowns() {
   });
   ['tfFrom','tfTo'].forEach(id=>{
     const el=document.getElementById(id); if(!el) return;
-    const cur=el.value; el.innerHTML=getBankOptions(cur);
+    const cur=el.value; el.innerHTML=getBankAndCardOptions(cur);
   });
 }
 
@@ -1657,9 +1657,19 @@ function processTransfer() {
   const a = parseFloat(document.getElementById('tfAmt').value);
   const f = document.getElementById('tfFrom').value;
   const t = document.getElementById('tfTo').value;
-  if(!a) { toast('રકમ દાખલ કરો','var(--red)'); return; }
-  if(f===t) { toast('અલગ બેંક પસંદ કરો','var(--red)'); return; }
-  db.banks[f]-=a; db.banks[t]+=a;
+  if(!a || a<=0) { toast('રકમ દાખલ કરો','var(--red)'); return; }
+  if(f===t) { toast('અલગ બેંક / કાર્ડ પસંદ કરો','var(--red)'); return; }
+  const fromCard = ccByName(f), toCard = ccByName(t);
+  // કાર્ડમાંથી ટ્રાન્સફર = કાર્ડની લિમિટ વપરાય (used વધે)
+  if(fromCard && a > ccAvail(fromCard)) {
+    toast('લિમિટ પૂરી! બાકી લિમિટ ₹'+fmt(ccAvail(fromCard)),'var(--red)'); return;
+  }
+  // કાર્ડમાં ટ્રાન્સફર = કાર્ડ ભરપાઈ (used ઘટે) — બાકી વપરાયેલ રકમથી વધુ ન ભરાય
+  if(toCard && a > (toCard.used||0)) {
+    toast('કાર્ડની બાકી રકમ માત્ર ₹'+fmt(toCard.used||0)+' છે','var(--red)'); return;
+  }
+  applyBankDelta(f, -a);   // from: બેંક -a / કાર્ડ used +a
+  applyBankDelta(t, +a);   // to:   બેંક +a / કાર્ડ used -a
   db.entries.unshift({id:Date.now(),date:new Date().toISOString().split('T')[0],cat:`Transfer: ${f}➔${t}`,note:'Transfer',bank:'Transfer',amt:a,type:'Transfer'});
   save(); document.getElementById('tfAmt').value='';
   toast(`₹${fmt(a)} ટ્રાન્સફર સફળ!`);
@@ -1936,10 +1946,84 @@ function generateReport() {
     mkTable(iS,'Income','var(--green)','આવક') +
     mkTable(eS,'Expense','var(--red)','જાવક') +
     mkLoanSection() +
+    (()=>{ const d=ccReportData(f,t); return d.length ? `<div class="card">${ccDetailHTML(d,f,t)}</div>` : ''; })() +
     buildAnyoTable(f, t) +
     buildDailyExpTable(f, t);
 
   requestAnimationFrame(() => drawReportChart(tI, tE, savings));
+}
+
+// ── 💳 Credit Card વિગત (રિપોર્ટ + PDF બંને માટે) ─────────────────────────
+function ccReportData(f, t) {
+  const inRange = e => e.date>=f && e.date<=t;
+  const cmp = (a,b) => a.date.localeCompare(b.date) || (a.id-b.id);
+  const allTf = db.entries.filter(e=>inRange(e)&&e.type==='Transfer'&&e.cat&&e.cat.startsWith('Transfer: '))
+    .map(e=>{ const p=e.cat.replace('Transfer: ','').split('➔'); return {e, from:p[0], to:p[1]}; });
+  return ccCards().map(c=>{
+    const tx = db.entries.filter(e=>inRange(e)&&e.type!=='Transfer'&&e.bank===c.name).sort(cmp);
+    const tf = allTf.filter(x=>x.from===c.name||x.to===c.name).sort((a,b)=>cmp(a.e,b.e));
+    const sum = arr => arr.reduce((s,x)=>s+x,0);
+    return {
+      card:c, tx, tf,
+      spent:  sum(tx.filter(e=>e.type==='Expense').map(e=>e.amt)),
+      refund: sum(tx.filter(e=>e.type==='Income').map(e=>e.amt)),
+      paid:   sum(tf.filter(x=>x.to===c.name).map(x=>x.e.amt)),
+      cash:   sum(tf.filter(x=>x.from===c.name).map(x=>x.e.amt))
+    };
+  }).filter(d=>d.tx.length||d.tf.length);
+}
+
+function ccDetailHTML(data, f, t) {
+  const P = '#6c47d9', PB = '#f1ecfd';
+  const td = 'padding:6px 8px;border-bottom:1px solid #eee;';
+  const th = 'padding:7px 8px;font-size:10px;font-weight:700;background:'+PB+';border-bottom:2px solid #d9cdf7;color:#4a2fa8;';
+  const stat = (label,val,col) => `<div style="flex:1;min-width:90px;background:#fff;border:1px solid #e3dbf7;border-radius:8px;padding:6px 8px">
+      <div style="font-size:9px;color:#888">${label}</div>
+      <div style="font-size:13px;font-weight:700;color:${col}">₹${fmt(val)}</div></div>`;
+  const blocks = data.map(d=>{
+    const c = d.card, avail = ccAvail(c);
+    const txRows = d.tx.map((e,i)=>{
+      const inc = e.type==='Income';
+      return `<tr style="background:${i%2?'#faf8ff':'#fff'}">
+        <td style="${td}font-size:11px;color:#666;white-space:nowrap">${e.date}</td>
+        <td style="${td}font-size:12px">${escH(e.cat||'')}</td>
+        <td style="${td}font-size:11px;color:#666">${(e.note&&e.note!=='-')?escH(e.note):'—'}</td>
+        <td style="${td}text-align:right;font-weight:700;font-size:12px;color:${inc?'#00936e':'#d63350'}">${inc?'+':'-'}₹${fmt(e.amt)}</td>
+      </tr>`;
+    }).join('');
+    const tfRows = d.tf.map((x,i)=>{
+      const toCard = x.to===c.name;
+      return `<tr style="background:${i%2?'#faf8ff':'#fff'}">
+        <td style="${td}font-size:11px;color:#666;white-space:nowrap">${x.e.date}</td>
+        <td style="${td}font-size:12px">${escH(x.from)} ➔ ${escH(x.to)}</td>
+        <td style="${td}font-size:11px;color:#666">${toCard?'કાર્ડ ભરપાઈ':'કાર્ડમાંથી ઉપાડ'}</td>
+        <td style="${td}text-align:right;font-weight:700;font-size:12px;color:${toCard?'#00936e':'#d63350'}">${toCard?'+':'-'}₹${fmt(x.e.amt)}</td>
+      </tr>`;
+    }).join('');
+    return `<div style="border:1px solid #d9cdf7;border-radius:10px;padding:10px;margin-bottom:14px;background:#fff">
+      <div style="font-size:14px;font-weight:700;color:${P};margin-bottom:8px">💳 ${escH(c.name)}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+        ${stat('આ સમયગાળાનો ખર્ચ', d.spent, '#d63350')}
+        ${stat('ભરપાઈ (બેંકમાંથી)', d.paid, '#00936e')}
+        ${stat('હાલનું વપરાયેલ', c.used||0, '#c4820a')}
+        ${stat('બાકી લિમિટ', avail, avail>=0?P:'#d63350')}
+      </div>
+      ${d.tx.length?`<table style="width:100%;border-collapse:collapse">
+        <thead><tr><th style="${th}text-align:left">તારીખ</th><th style="${th}text-align:left">કેટેગરી</th><th style="${th}text-align:left">નોંધ</th><th style="${th}text-align:right">રકમ</th></tr></thead>
+        <tbody>${txRows}</tbody>
+        <tfoot><tr style="background:${PB}"><td colspan="3" style="padding:7px 8px;font-weight:700">કુલ ખર્ચ${d.refund?' (રિફંડ/આવક ₹'+fmt(d.refund)+' અલગ)':''}</td>
+          <td style="padding:7px 8px;text-align:right;font-weight:700;color:#d63350">₹${fmt(d.spent)}</td></tr></tfoot>
+      </table>`:''}
+      ${d.tf.length?`<div style="font-size:11px;color:#888;margin:12px 0 6px;font-weight:700">ટ્રાન્સફર (ભરપાઈ / ઉપાડ)</div>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr><th style="${th}text-align:left">તારીખ</th><th style="${th}text-align:left">ક્યાંથી ➔ ક્યાં</th><th style="${th}text-align:left">પ્રકાર</th><th style="${th}text-align:right">રકમ</th></tr></thead>
+        <tbody>${tfRows}</tbody>
+      </table>`:''}
+    </div>`;
+  }).join('');
+  const totSpent = data.reduce((s,d)=>s+d.spent,0);
+  return `<div style="background:${P};color:#fff;padding:10px 16px;border-radius:8px;margin-bottom:14px;font-weight:700;font-size:14px">💳 Credit Card એન્ટ્રી — વિગત &nbsp;·&nbsp; કુલ ખર્ચ ₹${fmt(totSpent)}</div>
+    <div style="font-size:10px;color:#888;margin:-6px 0 12px">${f} → ${t}</div>${blocks}`;
 }
 
 // ── "અન્ય" Category Detail Table (on-screen) ────────────────────────────────
@@ -2473,6 +2557,16 @@ async function downloadReportPDF() {
           </tr></tfoot>
         </table>`;
       await addDivAsPages(dlyDiv);
+    }
+
+    // ── LAST PAGE: Credit Card એન્ટ્રી વિગત ───────────────────────
+    const ccData = ccReportData(f,t);
+    if(ccData.length) {
+      doc.addPage();
+      const ccDiv = document.createElement('div');
+      ccDiv.style.cssText = 'width:700px;padding:16px;background:#fff;font-family:Noto Sans Gujarati,sans-serif;';
+      ccDiv.innerHTML = ccDetailHTML(ccData, f, t);
+      await addDivAsPages(ccDiv);
     }
 
     // Update page 1 footer with total pages
