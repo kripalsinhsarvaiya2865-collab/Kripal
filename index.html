@@ -896,17 +896,19 @@ nav {
     </div>
 
     <div class="card">
-      <!-- Date Filter -->
-      <div class="date-filter" style="margin-bottom:12px">
+      <!-- Month / Year Filter -->
+      <div style="margin-bottom:12px">
+      <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:8px">
         <div>
-          <label class="field-label">થી</label>
-          <input type="date" id="listFrom">
+          <label class="field-label">મહિનો</label>
+          <select id="listMonth" onchange="periodApply('list')"></select>
         </div>
         <div>
-          <label class="field-label">સુધી</label>
-          <input type="date" id="listTo">
+          <label class="field-label">વર્ષ</label>
+          <select id="listYear" onchange="periodApply('list')"></select>
         </div>
-        <button onclick="renderAllEntries()">જુઓ</button>
+      </div>
+        <input type="hidden" id="listFrom"><input type="hidden" id="listTo">
       </div>
       <!-- Type & Category Filter -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
@@ -958,6 +960,38 @@ nav {
       </div>
       <button class="btn btn-blue" onclick="processTransfer()">🔄 &nbsp; ટ્રાન્સફર કરો</button>
     </div>
+    <!-- CREDIT CARD PAYMENT -->
+    <div class="card">
+      <div class="card-title"><div class="card-title-dot" style="background:#6c47d9"></div> 💳 Credit Card ભરપાઈ (Payment)</div>
+      <div class="form-row">
+        <div>
+          <label class="field-label">કયું કાર્ડ</label>
+          <select id="cpCard" onchange="cpUpdateInfo()"></select>
+        </div>
+        <div>
+          <label class="field-label">કઈ બેંકમાંથી</label>
+          <select id="cpBank"></select>
+        </div>
+      </div>
+      <div id="cpInfo" style="font-size:12px;color:var(--text-mid);margin:2px 0 10px"></div>
+      <div class="form-row">
+        <div>
+          <label class="field-label">રકમ (₹)</label>
+          <input type="number" id="cpAmt" placeholder="0.00">
+        </div>
+        <div>
+          <label class="field-label">તારીખ</label>
+          <input type="date" id="cpDate">
+        </div>
+      </div>
+      <button class="btn btn-outline" onclick="cpFillFull()" style="padding:10px;margin-bottom:10px">પૂરી બાકી રકમ ભરો</button>
+      <button class="btn btn-blue" onclick="processCardPay()" style="background:linear-gradient(135deg,#6c47d9,#8a63f2)">💳 &nbsp; ભરપાઈ કરો</button>
+    </div>
+    <!-- DELETED TRANSFERS / RECOVERY -->
+    <div class="card">
+      <div class="card-title"><div class="card-title-dot" style="background:var(--red)"></div> ♻️ ડીલીટ થયેલા ટ્રાન્સફર (રિકવરી)</div>
+      <div id="tfTrashList"></div>
+    </div>
   </section>
 
   <!-- LOAN SECTION -->
@@ -1004,17 +1038,18 @@ nav {
       રિપોર્ટ
     </div>
     <div class="card">
-      <div class="date-filter">
+      <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:8px">
         <div>
-          <label class="field-label">થી</label>
-          <input type="date" id="reportFrom">
+          <label class="field-label">મહિનો</label>
+          <select id="repMonth" onchange="periodApply('rep')"></select>
         </div>
         <div>
-          <label class="field-label">સુધી</label>
-          <input type="date" id="reportTo">
+          <label class="field-label">વર્ષ</label>
+          <select id="repYear" onchange="periodApply('rep')"></select>
         </div>
-        <button onclick="generateReport()">જુઓ</button>
       </div>
+      <input type="hidden" id="reportFrom"><input type="hidden" id="reportTo">
+      <button class="btn btn-blue" onclick="generateReport()" style="margin-top:12px;margin-bottom:0">📊 &nbsp; રિપોર્ટ જુઓ</button>
       <button class="btn btn-orange" onclick="downloadReportPDF()" style="margin-top:12px;margin-bottom:0">⬇ &nbsp; PDF ડાઉનલોડ</button>
     </div>
     <div id="reportArea"></div>
@@ -1026,18 +1061,8 @@ nav {
       <div class="sec-head-icon" style="background:rgba(139,145,184,0.12)">⚙️</div>
       સેટિંગ્સ
     </div>
-    <!-- REMINDERS -->
-    <div class="card">
-      <div class="card-title"><div class="card-title-dot" style="background:var(--gold)"></div> 🔔 રિમાઇન્ડર / નોટિફિકેશન</div>
-      <p style="font-size:11px;color:var(--text-dim);line-height:1.7;margin-bottom:10px">• 2 દિવસ સુધી કોઈ એન્ટ્રી ન પડે તો દર 2 દિવસે એક વાર<br>• એન્ટ્રી પડતી હોય તો કોઈ નોટિફિકેશન નહીં</p>
-      <div id="remStatus" style="font-size:12px;color:var(--text-mid);line-height:1.8;margin-bottom:12px"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <button class="btn btn-blue" onclick="remEnable()" style="padding:12px">🔔 ચાલુ કરો</button>
-        <button class="btn btn-outline" onclick="remTest()" style="padding:12px">ટેસ્ટ</button>
-      </div>
-    </div>
-    <!-- BANK MANAGEMENT -->
-    <div class="card">
+    <!-- BANK MANAGEMENT (hidden) -->
+    <div class="card" style="display:none">
       <div class="card-title"><div class="card-title-dot" style="background:var(--blue)"></div> 🏦 Bank મેનેજ કરો</div>
       <div class="form-row">
         <div style="grid-column:span 2">
@@ -1050,13 +1075,13 @@ nav {
       </div>
       <div id="bankListDisplay"></div>
     </div>
-    <!-- CREDIT CARD MANAGEMENT -->
-    <div class="card">
+    <!-- CREDIT CARD MANAGEMENT (hidden) -->
+    <div class="card" style="display:none">
       <div class="card-title"><div class="card-title-dot" style="background:#6c47d9"></div> 💳 Credit Card મેનેજ કરો</div>
       <div class="form-row">
         <div>
           <label class="field-label">કાર્ડનું નામ</label>
-          <input type="text" id="ccNewName" placeholder="HDFC, SBI...">
+          <input type="text" id="ccNewName" placeholder="Credit Card">
         </div>
         <div>
           <label class="field-label">લિમિટ (₹)</label>
@@ -1196,12 +1221,13 @@ if(_saved) {
   if(!db.entries) db.entries=[];
   if(!db.loans) db.loans=[];
   if(!db.cards) db.cards=[];
+  if(!db.deletedTransfers) db.deletedTransfers=[];
 } else {
   // નવો user - default 4 banks
   db = {
     banks:{"Bank 1":0,"Bank 2":0,"Bank 3":0,"Bank 4":0},
     bankNames:["Bank 1","Bank 2","Bank 3","Bank 4"],
-    entries:[], loans:[], cards:[],
+    entries:[], loans:[], cards:[], deletedTransfers:[],
     cats:{exp:['શાકભાજી','ઇંધણ','દવા'],inc:['પગાર','વ્યવસાય'],loan:['મિત્ર 1']}
   };
 }
@@ -1227,8 +1253,6 @@ function updateDateHeader() {
 // SAVE
 function save() {
   localStorage.setItem('smartHisab', JSON.stringify(db));
-  localStorage.setItem('smartHisabAct', String(Date.now()));   // છેલ્લું કામ (reminder માટે)
-  if(typeof remSyncPlan==='function') remSyncPlan();
   database.ref('users/' + myMobile).set(db);
   renderBanks();
   renderLoanSummary();
@@ -1268,6 +1292,11 @@ function refreshAllBankDropdowns() {
     const el=document.getElementById(id); if(!el) return;
     const cur=el.value; el.innerHTML=getBankAndCardOptions(cur);
   });
+  const cpC=document.getElementById('cpCard');
+  if(cpC){ const cur=cpC.value; cpC.innerHTML=ccCards().map(c=>`<option${c.name===cur?' selected':''}>${escH(c.name)}</option>`).join(''); }
+  const cpB=document.getElementById('cpBank');
+  if(cpB){ const cur=cpB.value; cpB.innerHTML=getBankOptions(cur); }
+  if(typeof cpUpdateInfo==='function') cpUpdateInfo();
   ['tfFrom','tfTo'].forEach(id=>{
     const el=document.getElementById(id); if(!el) return;
     const cur=el.value; el.innerHTML=getBankAndCardOptions(cur);
@@ -1507,7 +1536,7 @@ function renderAllEntries() {
     if(isTransfer) {
       // cat format: "Transfer: FROM➔TO"
       const parts = e.cat.replace('Transfer: ','');
-      catLine = '🔄 ટ્રાન્સફર';
+      catLine = e.isCardPay ? '💳 કાર્ડ ભરપાઈ' : '🔄 ટ્રાન્સફર';
       metaLine = e.date + ' &nbsp;·&nbsp; <span style="color:var(--blue);font-weight:600">' + parts + '</span>';
     }
     const editBtn = isTransfer ? '' : `<button class="entry-del" style="color:var(--blue);font-size:15px" onclick="editEntry(${e.id})">✏️</button>`;
@@ -1576,19 +1605,27 @@ function _loanApplyAmtDiff(entry, diff) {
 }
 
 function deleteEntry(id) {
-  if(!confirm('ડીલીટ કરવું છે?')) return;
+  const i0 = db.entries.findIndex(e=>e.id===id);
+  const isTf = i0!==-1 && db.entries[i0].type==='Transfer';
+  if(!confirm(isTf ? 'આ ટ્રાન્સફર ડીલીટ કરવું છે?\nબેંક / કાર્ડનું બેલેન્સ પહેલા જેવું થઈ જશે. (ટ્રાન્સફર પેજમાં "રિકવરી" માંથી પાછું લાવી શકાશે)' : 'ડીલીટ કરવું છે?')) return;
   const i = db.entries.findIndex(e=>e.id===id);
   if(i!==-1) {
     const e = db.entries[i];
-    // Bank/Card balance reverse (Transfer & LastMon ne skip)
-    if(e.bank!=='Transfer' && !e.isLastMon) {
+    if(e.type==='Transfer') {
+      // ટ્રાન્સફર reverse: from પાછું +, to પાછું -
+      const {f,t} = tfParts(e);
+      if(tfExists(f)) applyBankDelta(f, +e.amt);
+      if(tfExists(t)) applyBankDelta(t, -e.amt);
+      tfTrash().unshift({...e, tfFrom:f, tfTo:t, deletedAt:Date.now()});
+    } else if(e.bank!=='Transfer' && !e.isLastMon) {
+      // Bank/Card balance reverse (LastMon ne skip)
       applyBankDelta(e.bank, e.type==='Income' ? -e.amt : e.amt);
     }
     // Loan rem reverse
     _loanReverse(e);
     db.entries.splice(i,1);
-    save(); renderAllEntries();
-    toast('ડીલીટ થઈ ગઈ', 'var(--red)');
+    save(); renderAllEntries(); renderDeletedTransfers();
+    toast(e.type==='Transfer' ? 'ટ્રાન્સફર ડીલીટ — રિકવરીમાં સચવાયું' : 'ડીલીટ થઈ ગઈ', 'var(--red)');
   }
 }
 
@@ -1670,7 +1707,7 @@ function processTransfer() {
   }
   applyBankDelta(f, -a);   // from: બેંક -a / કાર્ડ used +a
   applyBankDelta(t, +a);   // to:   બેંક +a / કાર્ડ used -a
-  db.entries.unshift({id:Date.now(),date:new Date().toISOString().split('T')[0],cat:`Transfer: ${f}➔${t}`,note:'Transfer',bank:'Transfer',amt:a,type:'Transfer'});
+  db.entries.unshift({id:Date.now(),date:new Date().toISOString().split('T')[0],cat:`Transfer: ${f}➔${t}`,note:'Transfer',bank:'Transfer',amt:a,type:'Transfer',tfFrom:f,tfTo:t});
   save(); document.getElementById('tfAmt').value='';
   toast(`₹${fmt(a)} ટ્રાન્સફર સફળ!`);
 }
@@ -2655,7 +2692,6 @@ function renderSettings() {
     });
   });
   document.getElementById('catListDisplay').innerHTML = `<div class="card-title"><div class="card-title-dot"></div>કેટેગરી લિસ્ટ</div>` + h;
-  remRenderStatus();
   renderCardSettings();
 }
 
@@ -2790,121 +2826,165 @@ function renderCardSettings(){
 }
 
 // ═══════════════════════════════════════════════
-// 🔔 REMINDERS (2 દિવસ સુધી કોઈ એન્ટ્રી ન પડે તો)
+// 💳 CREDIT CARD ભરપાઈ + ♻️ ટ્રાન્સફર રિકવરી
 // ═══════════════════════════════════════════════
-const REM_DAY = 86400000;
-function remCompute(plan, st, now){
-  const out = [];
-  const last = plan.lastActivity || now;
-  if(now - last >= 2*REM_DAY && now - (st.lastNudge||0) >= 2*REM_DAY){
-    out.push({key:'nudge', tag:'nudge', title:'📝 હિસાબ એન્ટ્રી બાકી છે',
-      body:'છેલ્લા 2 દિવસથી કોઈ એન્ટ્રી પડી નથી. ખર્ચ / આવક લખી લો.'});
-  }
-  return out;
+function tfTrash(){ if(!db.deletedTransfers) db.deletedTransfers=[]; return db.deletedTransfers; }
+function tfParts(e){
+  if(e.tfFrom!==undefined && e.tfTo!==undefined) return {f:e.tfFrom, t:e.tfTo};
+  const p = String(e.cat||'').replace('Transfer: ','').split('➔');
+  return {f:p[0], t:p[1]};
+}
+function tfExists(n){ return !!ccByName(n) || db.bankNames.includes(n); }
+
+function cpUpdateInfo(){
+  const el = document.getElementById('cpInfo'); if(!el) return;
+  const sel = document.getElementById('cpCard');
+  const c = sel && sel.value ? ccByName(sel.value) : null;
+  el.innerHTML = c
+    ? `વપરાયેલ (ભરવાના બાકી): <b style="color:var(--red)">₹${fmt(c.used||0)}</b> &nbsp;·&nbsp; બાકી લિમિટ: <b style="color:#6c47d9">₹${fmt(ccAvail(c))}</b>`
+    : 'પહેલા સેટિંગ્સમાં Credit Card ઉમેરો.';
+}
+function cpFillFull(){
+  const c = ccByName(document.getElementById('cpCard').value); if(!c) return;
+  document.getElementById('cpAmt').value = c.used||0;
+}
+function processCardPay(){
+  const cn = document.getElementById('cpCard').value;
+  const bn = document.getElementById('cpBank').value;
+  const a  = parseFloat(document.getElementById('cpAmt').value);
+  const d  = document.getElementById('cpDate').value || new Date().toISOString().split('T')[0];
+  const c = ccByName(cn);
+  if(!c){ toast('પહેલા Credit Card ઉમેરો','var(--red)'); return; }
+  if(!bn){ toast('બેંક પસંદ કરો','var(--red)'); return; }
+  if(!a || a<=0){ toast('રકમ દાખલ કરો','var(--red)'); return; }
+  if(a > (c.used||0)){ toast('કાર્ડની બાકી રકમ માત્ર ₹'+fmt(c.used||0)+' છે','var(--red)'); return; }
+  applyBankDelta(bn, -a);   // બેંકમાંથી પૈસા ગયા
+  applyBankDelta(cn, +a);   // કાર્ડ used ઘટ્યું, લિમિટ પાછી મળી
+  db.entries.unshift({id:Date.now(), date:d, cat:`Transfer: ${bn}➔${cn}`, note:'કાર્ડ ભરપાઈ', bank:'Transfer', amt:a, type:'Transfer', tfFrom:bn, tfTo:cn, isCardPay:true});
+  save();
+  document.getElementById('cpAmt').value='';
+  cpUpdateInfo();
+  toast(`✓ ${cn} માં ₹${fmt(a)} ભરપાઈ થયું`, '#6c47d9');
 }
 
-// IndexedDB (page + service worker વચ્ચે share)
-function kvOpen(){ return new Promise((res,rej)=>{ const r=indexedDB.open('hisab-rem',1); r.onupgradeneeded=()=>r.result.createObjectStore('kv'); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
-function kvGet(k){ return kvOpen().then(d=>new Promise((res,rej)=>{ const q=d.transaction('kv').objectStore('kv').get(k); q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error); })); }
-function kvSet(k,v){ return kvOpen().then(d=>new Promise((res,rej)=>{ const t=d.transaction('kv','readwrite'); t.objectStore('kv').put(v,k); t.oncomplete=()=>res(); t.onerror=()=>rej(t.error); })); }
-
-function remLastActivity(){
-  let v = parseInt(localStorage.getItem('smartHisabAct'),10);
-  if(!v){
-    v = Math.max(0, ...db.entries.map(e=>+e.id||0));
-    if(!v || v>Date.now()) v = Date.now();
-    localStorage.setItem('smartHisabAct', String(v));
-  }
-  return v;
+function renderDeletedTransfers(){
+  const el = document.getElementById('tfTrashList'); if(!el) return;
+  const arr = tfTrash();
+  if(!arr.length){ el.innerHTML='<div style="font-size:12px;color:var(--text-dim);padding:6px 0">કોઈ ડીલીટ થયેલું ટ્રાન્સફર નથી.</div>'; return; }
+  el.innerHTML = arr.map(e=>{
+    const {f,t} = tfParts(e);
+    const when = e.deletedAt ? new Date(e.deletedAt).toLocaleString('gu-IN',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+    return `<div class="entry-item" style="opacity:.95">
+      <div class="entry-icon transfer">${e.isCardPay?'💳':'⇄'}</div>
+      <div class="entry-info">
+        <div class="entry-cat">${e.isCardPay?'💳 કાર્ડ ભરપાઈ':'🔄 ટ્રાન્સફર'} · ₹${fmt(e.amt)}</div>
+        <div class="entry-meta"><span style="color:var(--blue);font-weight:600">${escH(f)}➔${escH(t)}</span> &nbsp;·&nbsp; તારીખ ${escH(e.date)}</div>
+        <div class="entry-meta" style="color:var(--red)">🗑 ડીલીટ થયું: ${escH(when)}</div>
+      </div>
+      <div class="entry-right">
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+          <button class="del-cat-btn" style="color:var(--green)" onclick="restoreTransfer(${e.id})">↩️ પાછું લાવો</button>
+          <button class="del-cat-btn" onclick="purgeTransfer(${e.id})">✕ કાયમ કાઢો</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
 }
-function remBuildPlan(){
-  return { lastActivity: remLastActivity() };
+function restoreTransfer(id){
+  const arr = tfTrash();
+  const i = arr.findIndex(x=>String(x.id)===String(id)); if(i===-1) return;
+  const e = arr[i];
+  const {f,t} = tfParts(e);
+  if(!tfExists(f) || !tfExists(t)){ toast('આ બેંક / કાર્ડ હવે નથી, પાછું ન લાવી શકાય','var(--red)'); return; }
+  const fc = ccByName(f), tc = ccByName(t);
+  if(fc && e.amt > ccAvail(fc)){ toast('લિમિટ પૂરી! બાકી લિમિટ ₹'+fmt(ccAvail(fc)),'var(--red)'); return; }
+  if(tc && e.amt > (tc.used||0)){ toast('કાર્ડની બાકી રકમ માત્ર ₹'+fmt(tc.used||0)+' છે','var(--red)'); return; }
+  if(!confirm('ટ્રાન્સફર પાછું લાવવું? બેંક / કાર્ડમાં ફરી રકમ લાગુ થશે.')) return;
+  applyBankDelta(f, -e.amt);
+  applyBankDelta(t, +e.amt);
+  const entry = {...e}; delete entry.deletedAt;
+  entry.tfFrom = f; entry.tfTo = t;
+  db.entries.unshift(entry);
+  arr.splice(i,1);
+  save(); renderDeletedTransfers(); renderAllEntries();
+  toast('✓ ટ્રાન્સફર પાછું આવ્યું','var(--green)');
 }
-function remSyncPlan(){ try{ kvSet('plan', remBuildPlan()).catch(()=>{}); }catch(e){} }
-
-async function remShow(r){
-  try{
-    if(!('Notification' in window) || Notification.permission!=='granted') return false;
-    const opts = {body:r.body, tag:r.tag, icon:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAYAAABS3GwHAAAFMElEQVR4nO3dXWscZRgG4JkQPNCf5H9R0IL40VYlglgUTK0IirUftnggVf+L/0jBs/UgDU3bTbKz8/E+s/d1wZ6V7NvMfc/zzswm6btqHt3atF4CM7r5sG+9hIvaLubhTWGn6249apbD5d9Y6LnKwmVY7s0EnyEWKsL8byL4jDFzEeb74oLPlGYqwvRfVPCZ08RFOJryiwk/s5s4Y9O06YHg08Dt8dNg/AQQflqZIHvjCiD8tDYyg/sXQPipYkQW9yuA8FPNnpkcfhHx4BPhp67bjwdletgEEH6qG5jR3Qsg/KzFgKzuNi5+EX5W6NPrt0PXTwDhZ612yO60H4WAlbm6AM7+rN01Gb68AMLPobgiy7ZARNteAGd/Ds0lmTYBiPb6fdL7zv4csM9efjZw/Pq/kH9yvLwFuv+x9HPYXsm4awCivSiAsz8pLmTdBCCaAhDt7JbQz7Y/BPr8194EIJoCEE0BiKYAROtdAJPs2Gd/SGYLRLRjA4BkJgDRFIBoCkA0BSCaAhBNAYimAETzHIBoJgDRfBaIaCYA0RSAaApANAUgmtugRDMBiKYARFMAom35Axm1bU6etF4C1+h/+qj1EnbWdz9+WP4yWOjXaQ1FKL8FEv712pw8KX/8js4+C1TzVf2bx27OjmP7PG17HRVYw9bX5uTpnt9uKtqcPG2eqW2vklugzRfCf4gqHtdyBaj4TWI61Y5vuQLAkhSAaKUKUG08Mo9Kx7lUAWBpCkA0Pw9AG0VyV+fDcG++0fWPb7deBWFsgYjm9wLRSI3cmQBEUwCiKQDR3AaljSK5MwGIpgBEUwCiKQDRFIBoCkA0BSDacbcpckP2n/+6zZe/tV4FC+l/+KD1ErquMwEIpwBEUwCiKQDRFIBoCkA0BSCanwegjSK5MwGIpgBEUwCi+b1ANFIjdyYA0RSAaG6D0kaR3JkARFMAoikA0RSAaApANAUgmgIQzXMA2iiSu9V/Fujvu281ff+3v/636fuvV43crXoL1Dr8VdbA/lZbgErBq7QWhlltAWAKCkA0BSCaAhDNcwDaKJI7E4BoCkA0BSDaagtQ6SMIldbCMEdnVyNVXsNUCF6FNaxT66ydvY5n/3/OTAAZw21Q2iiSu9VeA8AUFIBopQrQ373RegksoNJxLlUAWFq5AlQ6OzC9ase3XAFgSSULUO0swTQqHtejAg/jtr7603rfLPbXn95onqltr5IT4JwSHIbKx7Hvvn2vyDO5y22++b31EthDf/p+6yVcaxUFuEgZ6ltD8M+trgAwpdLXADA3BSCaAhDNzwMQzQQgmgIQTQGIpgBEUwCirf5vhMEYboMSzRaIaApANAUgmgIQTQGIpgBEUwCieQ5ANBOAaEfd6bO+9SKgidNn/fM/kWQfRCZbIKIpANEUgGhnBTj9w4UwWZ5n/sXfCXYdTCBbIKK9KMBd2yBCXMi6CUC0lwtgCnDoXsm4CUC01wtgCnCotmT7eNu/6zbuiZJh+xbouz9NAQ7LJZl2DUC0ywtgCnAorsjy1RNACVi7azJsC0S06wtgCrBWO2R3twmgBKzNjpkdFuw773pAQH33dj9hD7sGGPCFoYmBGR1+EawEVLVHNve7C6QEVLNnJscF+c47rglo795fe+d43HOAEW8MkxiZwfEPwpSAVibI3rThtSViCROedKc/e3+lBMzo+2l3HPNtXxSBKU0c/HPz798VgTFmCv655S5gFYEhZg7+ueXv4CgCV1ko+Ofa3sJUBrpu8dBfVO8evlIctoZh3+Z/UAU0M6K3IioAAAAASUVORK5CYII=', badge:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAYAAABS3GwHAAAFMElEQVR4nO3dXWscZRgG4JkQPNCf5H9R0IL40VYlglgUTK0IirUftnggVf+L/0jBs/UgDU3bTbKz8/E+s/d1wZ6V7NvMfc/zzswm6btqHt3atF4CM7r5sG+9hIvaLubhTWGn6249apbD5d9Y6LnKwmVY7s0EnyEWKsL8byL4jDFzEeb74oLPlGYqwvRfVPCZ08RFOJryiwk/s5s4Y9O06YHg08Dt8dNg/AQQflqZIHvjCiD8tDYyg/sXQPipYkQW9yuA8FPNnpkcfhHx4BPhp67bjwdletgEEH6qG5jR3Qsg/KzFgKzuNi5+EX5W6NPrt0PXTwDhZ612yO60H4WAlbm6AM7+rN01Gb68AMLPobgiy7ZARNteAGd/Ds0lmTYBiPb6fdL7zv4csM9efjZw/Pq/kH9yvLwFuv+x9HPYXsm4awCivSiAsz8pLmTdBCCaAhDt7JbQz7Y/BPr8194EIJoCEE0BiKYAROtdAJPs2Gd/SGYLRLRjA4BkJgDRFIBoCkA0BSCaAhBNAYimAETzHIBoJgDRfBaIaCYA0RSAaApANAUgmtugRDMBiKYARFMAom35Axm1bU6etF4C1+h/+qj1EnbWdz9+WP4yWOjXaQ1FKL8FEv712pw8KX/8js4+C1TzVf2bx27OjmP7PG17HRVYw9bX5uTpnt9uKtqcPG2eqW2vklugzRfCf4gqHtdyBaj4TWI61Y5vuQLAkhSAaKUKUG08Mo9Kx7lUAWBpCkA0Pw9AG0VyV+fDcG++0fWPb7deBWFsgYjm9wLRSI3cmQBEUwCiKQDR3AaljSK5MwGIpgBEUwCiKQDRFIBoCkA0BSDacbcpckP2n/+6zZe/tV4FC+l/+KD1ErquMwEIpwBEUwCiKQDRFIBoCkA0BSCanwegjSK5MwGIpgBEUwCi+b1ANFIjdyYA0RSAaG6D0kaR3JkARFMAoikA0RSAaApANAUgmgIQzXMA2iiSu9V/Fujvu281ff+3v/636fuvV43crXoL1Dr8VdbA/lZbgErBq7QWhlltAWAKCkA0BSCaAhDNcwDaKJI7E4BoCkA0BSDaagtQ6SMIldbCMEdnVyNVXsNUCF6FNaxT66ydvY5n/3/OTAAZw21Q2iiSu9VeA8AUFIBopQrQ373RegksoNJxLlUAWFq5AlQ6OzC9ase3XAFgSSULUO0swTQqHtejAg/jtr7603rfLPbXn95onqltr5IT4JwSHIbKx7Hvvn2vyDO5y22++b31EthDf/p+6yVcaxUFuEgZ6ltD8M+trgAwpdLXADA3BSCaAhDNzwMQzQQgmgIQTQGIpgBEUwCirf5vhMEYboMSzRaIaApANAUgmgIQTQGIpgBEUwCieQ5ANBOAaEfd6bO+9SKgidNn/fM/kWQfRCZbIKIpANEUgGhnBTj9w4UwWZ5n/sXfCXYdTCBbIKK9KMBd2yBCXMi6CUC0lwtgCnDoXsm4CUC01wtgCnCotmT7eNu/6zbuiZJh+xbouz9NAQ7LJZl2DUC0ywtgCnAorsjy1RNACVi7azJsC0S06wtgCrBWO2R3twmgBKzNjpkdFuw773pAQH33dj9hD7sGGPCFoYmBGR1+EawEVLVHNve7C6QEVLNnJscF+c47rglo795fe+d43HOAEW8MkxiZwfEPwpSAVibI3rThtSViCROedKc/e3+lBMzo+2l3HPNtXxSBKU0c/HPz798VgTFmCv655S5gFYEhZg7+ueXv4CgCV1ko+Ofa3sJUBrpu8dBfVO8evlIctoZh3+Z/UAU0M6K3IioAAAAASUVORK5CYII=', vibrate:[200,100,200], data:{url:'./'}};
-    const reg = ('serviceWorker' in navigator) ? await navigator.serviceWorker.getRegistration() : null;
-    if(reg && reg.showNotification){ await reg.showNotification(r.title, opts); return true; }
-    new Notification(r.title, opts); return true;
-  }catch(e){ return false; }
+function purgeTransfer(id){
+  if(!confirm('આ કાયમ માટે કાઢી નાખવું? પછી પાછું નહીં આવે.')) return;
+  const arr = tfTrash();
+  const i = arr.findIndex(x=>String(x.id)===String(id)); if(i===-1) return;
+  arr.splice(i,1);
+  save(); renderDeletedTransfers();
+  toast('કાયમ માટે કાઢી નાખ્યું','var(--red)');
 }
 
-async function remTick(){
-  try{
-    const plan = remBuildPlan();
-    await kvSet('plan', plan);
-    if(document.visibilityState==='visible') return;   // એપ ખુલ્લી હોય ત્યારે banner દેખાય છે
-    const st = (await kvGet('state')) || {}; st.notified = st.notified||{}; st.lastNudge = st.lastNudge||0;
-    const now = Date.now();
-    for(const r of remCompute(plan, st, now)){
-      if(await remShow(r)){
-        if(r.key==='nudge') st.lastNudge = now; else st.notified[r.key] = now;
-      }
+// ── 📅 મહિના / વર્ષ ડ્રોપડાઉન (લિસ્ટ + રિપોર્ટ) ──
+const GU_MONTHS_FULL = ['જાન્યુઆરી','ફેબ્રુઆરી','માર્ચ','એપ્રિલ','મે','જૂન','જુલાઈ','ઑગસ્ટ','સપ્ટેમ્બર','ઑક્ટોબર','નવેમ્બર','ડિસેમ્બર'];
+const PERIOD_CFG = {
+  list:{from:'listFrom', to:'listTo',     after:()=>renderAllEntries()},
+  rep: {from:'reportFrom', to:'reportTo', after:()=>generateReport()}
+};
+function periodYears(k){
+  const ys = document.getElementById(k+'Year'); if(!ys) return;
+  const cur = ys.value || String(new Date().getFullYear());
+  const years = new Set([new Date().getFullYear()]);
+  db.entries.forEach(e=>{ const y=parseInt(String(e.date).slice(0,4),10); if(y) years.add(y); });
+  ys.innerHTML = [...years].sort((a,b)=>b-a).map(y=>`<option${String(y)===cur?' selected':''}>${y}</option>`).join('');
+}
+function periodInit(k){
+  const m = document.getElementById(k+'Month'); if(!m) return;
+  m.innerHTML = '<option value="-1">આખું વર્ષ</option>' + GU_MONTHS_FULL.map((n,i)=>`<option value="${i}">${n}</option>`).join('');
+  m.value = String(new Date().getMonth());
+  periodYears(k);
+}
+function periodApply(k, silent){
+  const cfg = PERIOD_CFG[k];
+  const m = parseInt(document.getElementById(k+'Month').value, 10);
+  const y = parseInt(document.getElementById(k+'Year').value, 10) || new Date().getFullYear();
+  const pad = n => String(n).padStart(2,'0');
+  let from, to;
+  if(m === -1){ from = `${y}-01-01`; to = `${y}-12-31`; }
+  else { from = `${y}-${pad(m+1)}-01`; to = `${y}-${pad(m+1)}-${pad(new Date(y,m+1,0).getDate())}`; }
+  document.getElementById(cfg.from).value = from;
+  document.getElementById(cfg.to).value = to;
+  if(!silent) cfg.after();
+}
+
+// ── 💳 એક જ કાર્ડ હોય તો નામ ફક્ત "Credit Card" (બેંકનું નામ નહીં) ──
+function ccRename(c, newName){
+  const old = c.name; if(old===newName) return;
+  const fix = e=>{
+    if(e.bank===old) e.bank=newName;
+    if(e.tfFrom===old) e.tfFrom=newName;
+    if(e.tfTo===old) e.tfTo=newName;
+    if(e.type==='Transfer' && typeof e.cat==='string' && e.cat.startsWith('Transfer: ')){
+      const pr = e.cat.replace('Transfer: ','').split('➔');
+      if(pr[0]===old) pr[0]=newName;
+      if(pr[1]===old) pr[1]=newName;
+      e.cat = 'Transfer: '+pr.join('➔');
     }
-    Object.keys(st.notified).forEach(k=>{ if(now - st.notified[k] > 40*REM_DAY) delete st.notified[k]; });
-    await kvSet('state', st);
+  };
+  db.entries.forEach(fix);
+  tfTrash().forEach(fix);
+  c.name = newName;
+}
+function ccMigrateName(){
+  const cards = ccCards();
+  if(cards.length===1 && cards[0].name!=='Credit Card'){
+    ccRename(cards[0],'Credit Card');
+    save();
+  }
+}
+
+// જૂના નોટિફિકેશન / background service સાફ કરો (હવે નોટિફિકેશન નથી)
+function cleanupOldReminders(){
+  try{
+    if('serviceWorker' in navigator && location.protocol!=='file:'){
+      navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister())).catch(()=>{});
+    }
+    if(window.indexedDB) indexedDB.deleteDatabase('hisab-rem');
+    localStorage.removeItem('smartHisabAct');
   }catch(e){}
-}
-
-async function remRegisterSW(){
-  if(!('serviceWorker' in navigator)) return null;
-  try{
-    const reg = await navigator.serviceWorker.register('sw.js');
-    await navigator.serviceWorker.ready;
-    if('periodicSync' in reg){
-      try{ await reg.periodicSync.register('hisab-reminders', {minInterval: 12*60*60*1000}); }catch(e){}
-    }
-    remSyncPlan();
-    return reg;
-  }catch(e){ return null; }
-}
-async function remEnable(){
-  if(!window.isSecureContext || !/^https?:$/.test(location.protocol)){ toast('local ફાઇલમાં નોટિફિકેશન ચાલુ નહીં થાય — નીચે "hosting" સૂચના જુઓ','var(--red)'); remRenderStatus(); return; }
-  if(!('Notification' in window)){ toast('આ બ્રાઉઝરમાં નોટિફિકેશન સપોર્ટ નથી','var(--red)'); return; }
-  let p = Notification.permission;
-  if(p==='default') p = await Notification.requestPermission();
-  if(p!=='granted'){ toast('નોટિફિકેશન Allow કરવા પડશે (બ્રાઉઝર સેટિંગ્સ)','var(--red)'); remRenderStatus(); return; }
-  await remRegisterSW();
-  toast('✓ રિમાઇન્ડર ચાલુ થઈ ગયા!');
-  remRenderStatus();
-}
-async function remTest(){
-  if(!('Notification' in window) || Notification.permission!=='granted'){ await remEnable(); if(Notification.permission!=='granted') return; }
-  const ok = await remShow({tag:'test', title:'🔔 Smart Hisab', body:'નોટિફિકેશન બરાબર ચાલે છે ✓'});
-  toast(ok ? 'ટેસ્ટ નોટિફિકેશન મોકલ્યું' : 'નોટિફિકેશન બતાવી શકાયું નહીં', ok ? 'var(--green)' : 'var(--red)');
-}
-async function remRenderStatus(){
-  const el = document.getElementById('remStatus'); if(!el) return;
-  if(!window.isSecureContext || !/^https?:$/.test(location.protocol)){
-    el.innerHTML = '⚠️ આ ફાઇલ સીધી ફોનમાંથી (local) ખોલી છે — બ્રાઉઝર આમાં નોટિફિકેશન Allow કરવા દેતું નથી.'
-      + '<br><br><b>ઉપાય:</b> આ <code>index.html</code> ફાઇલ કોઈ ફ્રી hosting પર upload કરો (દા.ત. <b>Netlify Drop</b> — netlify.com/drop પર ફાઇલ ખેંચીને મૂકો, સેકંડોમાં https લિંક મળે), પછી એ https લિંક ખોલીને "ચાલુ કરો" દબાવો.'
-      + '<br><span style="color:var(--text-dim)">એપના બાકી બધા features (કાર્ડ, એન્ટ્રી, રિપોર્ટ) local ફાઇલમાં પણ બરાબર ચાલશે — ફક્ત નોટિફિકેશન માટે https જોઈએ.</span>';
-    return;
-  }
-  let perm = ('Notification' in window) ? Notification.permission : 'unsupported';
-  let sw = false, ps = false;
-  try{
-    if('serviceWorker' in navigator){
-      const reg = await navigator.serviceWorker.getRegistration();
-      sw = !!reg; ps = !!(reg && 'periodicSync' in reg);
-    }
-  }catch(e){}
-  const permTxt = perm==='granted' ? '✅ ચાલુ' : (perm==='denied' ? '❌ બ્લોક (બ્રાઉઝર સેટિંગ્સમાં Allow કરો)' : (perm==='unsupported' ? '❌ સપોર્ટ નથી' : '⚪ હજી ચાલુ નથી'));
-  el.innerHTML = `નોટિફિકેશન: <b>${permTxt}</b><br>Background service: <b>${sw?'✅ ચાલુ':'⚪ નથી (HTTPS + sw.js જોઈએ)'}</b>${sw && !ps ? ' <span style="color:var(--text-dim)">(આ ફોનમાં ફક્ત એપ ખુલ્લી/બ્રાઉઝર ચાલુ હોય ત્યારે)</span>':''}`;
-}
-
-function remInit(){
-  remLastActivity();
-  if('serviceWorker' in navigator && location.protocol!=='file:'){
-    if('Notification' in window && Notification.permission==='granted') remRegisterSW();
-    else navigator.serviceWorker.register('sw.js').catch(()=>{});
-  }
-  document.addEventListener('visibilitychange', ()=>{ remTick(); });
-  setInterval(remTick, 60*1000);
-  setTimeout(remTick, 3000);
 }
 
 // NAV
@@ -2914,10 +2994,11 @@ function showSec(id) {
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   const btn = document.getElementById('btn-'+id);
   if(btn) btn.classList.add('active');
-  if(id==='allEntries') renderAllEntries();
-  if(id==='reports') renderCatFilterChips();
+  if(id==='allEntries') { periodYears('list'); periodApply('list'); }
+  if(id==='reports') { periodYears('rep'); periodApply('rep', true); renderCatFilterChips(); }
   if(id==='settings') renderSettings();
   if(id==='loan') renderLoanSummary();
+  if(id==='transfer'){ cpUpdateInfo(); renderDeletedTransfers(); }
 }
 
 // BACKUP
@@ -2943,6 +3024,7 @@ function syncFromCloud() {
 
 // INIT
 window.onload = () => {
+  ccMigrateName();
   updateDateHeader();
   renderBanks();
   renderLoanSummary();
@@ -2952,12 +3034,11 @@ window.onload = () => {
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
   document.getElementById('entDate').value = d;
   document.getElementById('bachatDate').value = d;
-  document.getElementById('reportFrom').value = firstDay;
-  document.getElementById('reportTo').value = d;
-  document.getElementById('listFrom').value = firstDay;
-  document.getElementById('listTo').value = d;
+  periodInit('list'); periodInit('rep');
+  periodApply('list', true); periodApply('rep', true);
   switchEntryTab('javak');
-  remInit();
+  cleanupOldReminders();
+  const cpd=document.getElementById('cpDate'); if(cpd) cpd.value=d;
 };
 </script>
 </body>
